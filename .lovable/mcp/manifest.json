@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.1",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://vzvkastirkttraligtki.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "rwanda-ai-edu-hub",
+      "version": "0.1.0",
+      "title": "Rwanda AI Edu Hub"
+    },
+    "tools": [
+      {
+        "name": "list_subjects",
+        "title": "List subjects",
+        "description": "List the subjects available on the learning platform, optionally filtered by education level.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "level": {
+              "description": "Education level filter.",
+              "type": "string",
+              "enum": [
+                "primary",
+                "secondary",
+                "tvet"
+              ]
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_experiments",
+        "title": "List virtual lab experiments",
+        "description": "List virtual lab experiments, optionally filtered by subject, category, or education level.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "subject_id": {
+              "description": "Subject id to filter by.",
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "category": {
+              "description": "Category such as physics, chemistry, or biology.",
+              "type": "string"
+            },
+            "level": {
+              "description": "Education level filter.",
+              "type": "string",
+              "enum": [
+                "primary",
+                "secondary",
+                "tvet"
+              ]
+            },
+            "limit": {
+              "description": "Maximum experiments to return (default 20).",
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_my_progress",
+        "title": "Get my learning progress",
+        "description": "Get the signed-in student's progress per subject, including quizzes taken and total score.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_assignments",
+        "title": "List assignments",
+        "description": "List assignments visible to the signed-in user, with due dates and point values.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "subject_id": {
+              "description": "Subject id to filter by.",
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "upcoming_only": {
+              "description": "Only return assignments due in the future.",
+              "type": "boolean"
+            },
+            "limit": {
+              "description": "Maximum assignments to return (default 20).",
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_my_lab_reports",
+        "title": "List my lab reports",
+        "description": "List the signed-in user's virtual lab reports, including observations, grades, and AI feedback.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "experiment_id": {
+              "description": "Only reports for this experiment.",
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "limit": {
+              "description": "Maximum reports to return (default 10).",
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_my_calendar_events",
+        "title": "List my calendar events",
+        "description": "List the signed-in user's upcoming study calendar events.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "upcoming_only": {
+              "description": "Only events starting from now (default true).",
+              "type": "boolean"
+            },
+            "limit": {
+              "description": "Maximum events to return (default 20).",
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_calendar_event",
+        "title": "Create a study calendar event",
+        "description": "Create a calendar event (study session, exam, reminder) for the signed-in user.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Event title."
+            },
+            "start_time": {
+              "type": "string",
+              "description": "Start time as an ISO 8601 timestamp."
+            },
+            "end_time": {
+              "description": "End time as an ISO 8601 timestamp.",
+              "type": "string"
+            },
+            "description": {
+              "description": "Optional details about the event.",
+              "type": "string"
+            },
+            "event_type": {
+              "description": "Event type, e.g. study, exam, assignment, reminder.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "start_time"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

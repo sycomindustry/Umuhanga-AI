@@ -1,0 +1,16 @@
+project_id = "vzvkastirkttraligtki"
+
+[functions.ai-tutor]
+verify_jwt = true
+
+[functions.lab-assistant]
+verify_jwt = true
+
+[functions.grade-assignment]
+verify_jwt = true
+
+[functions.realtime-lab]
+verify_jwt = false
+
+[functions.mcp]
+verify_jwt = false
