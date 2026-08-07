@@ -1,4 +1,5 @@
-import { useRef, useState, useMemo, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
+import type { ThreeEvent } from "@react-three/fiber";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -24,13 +25,113 @@ interface InteractiveContainerProps {
   capacity: number; // in mL
   contents: ChemicalContent[];
   isSelected?: boolean;
+  isDropTarget?: boolean;
   isHeating?: boolean;
   temperature?: number;
   label?: string;
   reactionEffect?: 'explosion' | 'bubbles' | 'precipitate' | 'colorChange' | 'gas' | 'heat' | null;
   onSelect?: () => void;
+  onHoverChange?: (hovered: boolean) => void;
+  onPointerDownCapture?: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerUpCapture?: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerMoveCapture?: (e: ThreeEvent<PointerEvent>) => void;
   onDrop?: (chemical: ChemicalContent) => void;
   onPour?: (targetId: string, amount: number) => void;
+}
+
+function getSolutionAppearance(contents: ChemicalContent[], reactionEffect?: string | null, isHeating = false, temperature = 25) {
+  const hasAcid = contents.some(c => c.pH < 4);
+  const hasBase = contents.some(c => c.pH > 10);
+  const hasIndicator = contents.some(c => c.id === 'phenolphthalein');
+  const hasVinegar = contents.some(c => c.id === 'vinegar');
+  const hasBakingSoda = contents.some(c => c.id === 'baking_soda');
+  const hasSilverNitrate = contents.some(c => c.id === 'silver_nitrate');
+  const hasPotassiumIodide = contents.some(c => c.id === 'potassium_iodide');
+  const hasCopperSulfate = contents.some(c => c.id === 'copper_sulfate');
+  const hasIronNail = contents.some(c => c.id === 'iron_nail');
+  const hasHCl = contents.some(c => c.id === 'hcl');
+  const hasZinc = contents.some(c => c.id === 'zinc_metal');
+
+  let color = '#f7fbff';
+  let opacity = 0.96;
+  let cloudy = false;
+  let bubbleIntensity = 0.3;
+
+  if (contents.length === 1) {
+    const single = contents[0];
+    if (single.pH < 4) {
+      color = '#f8ef8b';
+      bubbleIntensity = 0.95;
+      cloudy = true;
+    } else if (single.pH > 10) {
+      color = '#9ed2ff';
+      bubbleIntensity = 0.9;
+      cloudy = true;
+    } else {
+      color = single.color;
+    }
+  } else {
+    if (hasAcid && !hasBase) {
+      color = '#f8ef8b';
+      bubbleIntensity = 1.0;
+      cloudy = true;
+    }
+    if (hasBase && !hasAcid) {
+      color = '#9ed2ff';
+      bubbleIntensity = 0.95;
+      cloudy = true;
+    }
+    if (hasAcid && hasBase) {
+      color = hasIndicator ? '#ff5a8a' : '#fdf8e2';
+      bubbleIntensity = 1.15;
+      cloudy = true;
+    }
+  }
+
+  if (hasVinegar && hasBakingSoda) {
+    color = '#fce9b3';
+    cloudy = true;
+    bubbleIntensity = 1.1;
+  }
+
+  if (hasSilverNitrate && hasPotassiumIodide) {
+    color = '#f3e8a6';
+    cloudy = true;
+    bubbleIntensity = 0.55;
+  }
+
+  if (hasCopperSulfate && hasIronNail) {
+    color = '#8fd0ff';
+    cloudy = true;
+    bubbleIntensity = 0.4;
+  }
+
+  if (hasHCl && hasZinc) {
+    color = '#eef6ff';
+    bubbleIntensity = 1.0;
+    cloudy = true;
+  }
+
+  if (reactionEffect === 'explosion') {
+    color = '#fff1c2';
+    cloudy = true;
+    bubbleIntensity = 1.25;
+  } else if (reactionEffect === 'precipitate') {
+    cloudy = true;
+    bubbleIntensity = 0.45;
+  } else if (reactionEffect === 'gas' || reactionEffect === 'bubbles') {
+    bubbleIntensity = 0.9;
+  } else if (reactionEffect === 'colorChange') {
+    color = '#ffcf66';
+    bubbleIntensity = 0.6;
+  }
+
+  if (isHeating && temperature > 70) {
+    bubbleIntensity = Math.max(bubbleIntensity, 0.75);
+    opacity = 0.9;
+  }
+
+  return { color, opacity, cloudy, bubbleIntensity };
 }
 
 // Bubble effect for reactions
@@ -163,11 +264,16 @@ export function InteractiveBeaker3D({
   contents,
   capacity,
   isSelected,
+  isDropTarget,
   isHeating,
   temperature = 25,
   label,
   reactionEffect,
   onSelect,
+  onHoverChange,
+  onPointerDownCapture,
+  onPointerUpCapture,
+  onPointerMoveCapture,
 }: InteractiveContainerProps) {
   const [hovered, setHovered] = useState(false);
   const [isExploding, setIsExploding] = useState(false);
@@ -178,24 +284,13 @@ export function InteractiveBeaker3D({
 
   // Calculate total volume and mixed color
   const totalVolume = contents.reduce((sum, c) => sum + c.amount, 0);
-  const fillLevel = Math.min(1, totalVolume / capacity);
-  
-  const mixedColor = useMemo(() => {
-    if (contents.length === 0) return "#87ceeb";
-    if (contents.length === 1) return contents[0].color;
-    
-    // Mix colors based on amounts
-    let r = 0, g = 0, b = 0, total = 0;
-    contents.forEach(c => {
-      const color = new THREE.Color(c.color);
-      r += color.r * c.amount;
-      g += color.g * c.amount;
-      b += color.b * c.amount;
-      total += c.amount;
-    });
-    if (total === 0) return "#87ceeb";
-    return new THREE.Color(r / total, g / total, b / total).getStyle();
-  }, [contents]);
+  const fillLevel = Math.min(1, Math.max(0.16, totalVolume / capacity));
+  const visibleFillLevel = fillLevel;
+  const solutionAppearance = useMemo(
+    () => getSolutionAppearance(contents, reactionEffect, isHeating, temperature),
+    [contents, reactionEffect, isHeating, temperature]
+  );
+  const mixedColor = solutionAppearance.color;
 
   // Handle reaction effects from parent
   useEffect(() => {
@@ -259,7 +354,7 @@ export function InteractiveBeaker3D({
   useFrame((state) => {
     if (liquidRef.current && isHeating && temperature > 60) {
       const t = state.clock.elapsedTime;
-      liquidRef.current.position.y = fillLevel * 0.45 + Math.sin(t * 8) * 0.01;
+      liquidRef.current.position.y = visibleFillLevel * 0.45 + Math.sin(t * 8) * 0.01;
     }
     if (glassRef.current) {
       const mat = glassRef.current.material as THREE.MeshPhysicalMaterial;
@@ -270,18 +365,43 @@ export function InteractiveBeaker3D({
   return (
     <group
       position={position}
-      onClick={(e) => { e.stopPropagation(); onSelect?.(); }}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={(e) => { e.stopPropagation(); setHovered(false); document.body.style.cursor = "auto"; }}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        onPointerDownCapture?.(e);
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        onPointerUpCapture?.(e);
+      }}
+      onPointerMove={(e) => {
+        e.stopPropagation();
+        onPointerMoveCapture?.(e);
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect?.();
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+        onHoverChange?.(true);
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        setHovered(false);
+        onHoverChange?.(false);
+        document.body.style.cursor = "auto";
+      }}
     >
       {/* Selection/hover highlight */}
-      {(hovered || isSelected) && (
+      {(hovered || isSelected || isDropTarget) && (
         <mesh scale={1.08}>
           <cylinderGeometry args={[0.58, 0.48, 1.08, 32]} />
           <meshBasicMaterial 
-            color={isSelected ? "#00aaff" : "#00ff88"} 
+            color={isSelected ? "#00aaff" : isDropTarget ? "#22d3ee" : "#00ff88"} 
             transparent 
-            opacity={isSelected ? 0.2 : 0.12} 
+            opacity={isSelected ? 0.2 : isDropTarget ? 0.16 : 0.12} 
           />
         </mesh>
       )}
@@ -292,7 +412,7 @@ export function InteractiveBeaker3D({
         <meshPhysicalMaterial
           color="#f0f8ff"
           transparent
-          opacity={0.08}
+          opacity={0.11}
           roughness={0.02}
           metalness={0}
           transmission={0.96}
@@ -305,6 +425,16 @@ export function InteractiveBeaker3D({
           attenuationDistance={2}
           side={THREE.DoubleSide}
         />
+      </mesh>
+
+      {/* Rim and base reinforcement */}
+      <mesh position={[0, 0.97, 0]}>
+        <cylinderGeometry args={[0.45, 0.47, 0.025, 32]} />
+        <meshPhysicalMaterial color="#edf7ff" transparent opacity={0.16} transmission={0.9} />
+      </mesh>
+      <mesh position={[0, -0.02, 0]}>
+        <cylinderGeometry args={[0.4, 0.41, 0.03, 32]} />
+        <meshPhysicalMaterial color="#eef7ff" transparent opacity={0.14} transmission={0.9} />
       </mesh>
 
       {/* Graduation marks */}
@@ -329,7 +459,7 @@ export function InteractiveBeaker3D({
       {fillLevel > 0 && (
         <group>
           <mesh ref={liquidRef} position={[0, fillLevel * 0.45, 0]}>
-            <cylinderGeometry args={[0.41 * fillLevel + 0.02, 0.39, fillLevel * 0.9, 32]} />
+            <cylinderGeometry args={[0.41 * visibleFillLevel + 0.02, 0.39, visibleFillLevel * 0.9, 32]} />
             <meshPhysicalMaterial
               color={mixedColor}
               transparent
@@ -344,11 +474,11 @@ export function InteractiveBeaker3D({
 
           {/* Surface */}
           <mesh position={[0, fillLevel * 0.9, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.40 * fillLevel + 0.05, 32]} />
+            <circleGeometry args={[0.40 * visibleFillLevel + 0.05, 32]} />
             <meshPhysicalMaterial
               color={mixedColor}
               transparent
-              opacity={0.6}
+              opacity={Math.max(0.5, solutionAppearance.opacity - 0.2)}
               roughness={0.1}
               metalness={0.1}
             />
@@ -356,7 +486,7 @@ export function InteractiveBeaker3D({
 
           {/* Meniscus */}
           <mesh position={[0, fillLevel * 0.9, 0]}>
-            <torusGeometry args={[0.39 * fillLevel + 0.05, 0.015, 8, 32]} />
+            <torusGeometry args={[0.39 * visibleFillLevel + 0.05, 0.015, 8, 32]} />
             <meshPhysicalMaterial color={mixedColor} transparent opacity={0.4} />
           </mesh>
         </group>
@@ -364,7 +494,14 @@ export function InteractiveBeaker3D({
 
       {/* Bubbling effect */}
       {isBubbling && fillLevel > 0 && (
-        <ReactionBubbles intensity={temperature > 80 ? 1 : 0.5} color={mixedColor} />
+        <ReactionBubbles intensity={solutionAppearance.bubbleIntensity} color={mixedColor} />
+      )}
+
+      {(isBubbling || contents.some(c => c.pH < 4) || contents.some(c => c.pH > 10)) && fillLevel > 0 && (
+        <mesh position={[0, visibleFillLevel * 0.9 + 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.42, 24]} />
+          <meshBasicMaterial color={mixedColor} transparent opacity={0.18} />
+        </mesh>
       )}
 
       {/* Steam when hot */}
@@ -407,32 +544,29 @@ export function InteractiveFlask3D({
   contents,
   capacity,
   isSelected,
+  isDropTarget,
   isHeating,
   temperature = 25,
   label,
+  reactionEffect,
   onSelect,
+  onHoverChange,
+  onPointerDownCapture,
+  onPointerUpCapture,
+  onPointerMoveCapture,
 }: InteractiveContainerProps) {
   const [hovered, setHovered] = useState(false);
   const [isBubbling, setIsBubbling] = useState(false);
   const glassRef = useRef<THREE.Mesh>(null);
 
   const totalVolume = contents.reduce((sum, c) => sum + c.amount, 0);
-  const fillLevel = Math.min(1, totalVolume / capacity);
-
-  const mixedColor = useMemo(() => {
-    if (contents.length === 0) return "#90ee90";
-    if (contents.length === 1) return contents[0].color;
-    let r = 0, g = 0, b = 0, total = 0;
-    contents.forEach(c => {
-      const color = new THREE.Color(c.color);
-      r += color.r * c.amount;
-      g += color.g * c.amount;
-      b += color.b * c.amount;
-      total += c.amount;
-    });
-    if (total === 0) return "#90ee90";
-    return new THREE.Color(r / total, g / total, b / total).getStyle();
-  }, [contents]);
+  const fillLevel = Math.min(1, Math.max(0.16, totalVolume / capacity));
+  const visibleFillLevel = fillLevel;
+  const solutionAppearance = useMemo(
+    () => getSolutionAppearance(contents, reactionEffect, isHeating, temperature),
+    [contents, reactionEffect, isHeating, temperature]
+  );
+  const mixedColor = solutionAppearance.color;
 
   useEffect(() => {
     if (contents.length >= 2 || isHeating) {
@@ -475,14 +609,40 @@ export function InteractiveFlask3D({
   return (
     <group
       position={position}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        onPointerDownCapture?.(e);
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        onPointerUpCapture?.(e);
+      }}
+      onPointerMove={(e) => {
+        e.stopPropagation();
+        onPointerMoveCapture?.(e);
+      }}
       onClick={(e) => { e.stopPropagation(); onSelect?.(); }}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={(e) => { e.stopPropagation(); setHovered(false); document.body.style.cursor = "auto"; }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+        onHoverChange?.(true);
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        setHovered(false);
+        onHoverChange?.(false);
+        document.body.style.cursor = "auto";
+      }}
     >
-      {(hovered || isSelected) && (
+      {(hovered || isSelected || isDropTarget) && (
         <mesh scale={1.1}>
           <coneGeometry args={[0.6, 1.1, 32]} />
-          <meshBasicMaterial color={isSelected ? "#00aaff" : "#00ff88"} transparent opacity={isSelected ? 0.2 : 0.1} />
+          <meshBasicMaterial
+            color={isSelected ? "#00aaff" : isDropTarget ? "#22d3ee" : "#00ff88"}
+            transparent
+            opacity={isSelected ? 0.2 : isDropTarget ? 0.16 : 0.1}
+          />
         </mesh>
       )}
 
@@ -507,8 +667,8 @@ export function InteractiveFlask3D({
       </mesh>
 
       {fillLevel > 0 && (
-        <mesh position={[0, fillLevel * 0.3, 0]}>
-          <coneGeometry args={[0.35 + (1 - fillLevel) * 0.15, fillLevel * 0.6, 32]} />
+        <mesh position={[0, visibleFillLevel * 0.3, 0]}>
+          <coneGeometry args={[0.35 + (1 - visibleFillLevel) * 0.15, visibleFillLevel * 0.6, 32]} />
           <meshPhysicalMaterial
             color={mixedColor}
             transparent
@@ -521,7 +681,7 @@ export function InteractiveFlask3D({
       )}
 
       {isBubbling && fillLevel > 0 && (
-        <ReactionBubbles intensity={0.5} color={mixedColor} />
+        <ReactionBubbles intensity={solutionAppearance.bubbleIntensity} color={mixedColor} />
       )}
 
       {isHeating && temperature > 70 && (
@@ -551,31 +711,28 @@ export function InteractiveTestTube3D({
   contents,
   capacity,
   isSelected,
+  isDropTarget,
   isHeating,
   temperature = 25,
   label,
+  reactionEffect,
   onSelect,
+  onHoverChange,
+  onPointerDownCapture,
+  onPointerUpCapture,
+  onPointerMoveCapture,
 }: InteractiveContainerProps) {
   const [hovered, setHovered] = useState(false);
   const [isBubbling, setIsBubbling] = useState(false);
 
   const totalVolume = contents.reduce((sum, c) => sum + c.amount, 0);
-  const fillLevel = Math.min(1, totalVolume / capacity);
-
-  const mixedColor = useMemo(() => {
-    if (contents.length === 0) return "#4ecdc4";
-    if (contents.length === 1) return contents[0].color;
-    let r = 0, g = 0, b = 0, total = 0;
-    contents.forEach(c => {
-      const color = new THREE.Color(c.color);
-      r += color.r * c.amount;
-      g += color.g * c.amount;
-      b += color.b * c.amount;
-      total += c.amount;
-    });
-    if (total === 0) return "#4ecdc4";
-    return new THREE.Color(r / total, g / total, b / total).getStyle();
-  }, [contents]);
+  const fillLevel = Math.min(1, Math.max(0.16, totalVolume / capacity));
+  const visibleFillLevel = fillLevel;
+  const solutionAppearance = useMemo(
+    () => getSolutionAppearance(contents, reactionEffect, isHeating, temperature),
+    [contents, reactionEffect, isHeating, temperature]
+  );
+  const mixedColor = solutionAppearance.color;
 
   useEffect(() => {
     if (contents.length >= 2 || isHeating) {
@@ -606,14 +763,40 @@ export function InteractiveTestTube3D({
     <group
       position={position}
       rotation={rotation}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        onPointerDownCapture?.(e);
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        onPointerUpCapture?.(e);
+      }}
+      onPointerMove={(e) => {
+        e.stopPropagation();
+        onPointerMoveCapture?.(e);
+      }}
       onClick={(e) => { e.stopPropagation(); onSelect?.(); }}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={(e) => { e.stopPropagation(); setHovered(false); document.body.style.cursor = "auto"; }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+        onHoverChange?.(true);
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        setHovered(false);
+        onHoverChange?.(false);
+        document.body.style.cursor = "auto";
+      }}
     >
-      {(hovered || isSelected) && (
+      {(hovered || isSelected || isDropTarget) && (
         <mesh>
           <cylinderGeometry args={[0.12, 0.12, 0.8, 16]} />
-          <meshBasicMaterial color={isSelected ? "#00aaff" : "#00ff88"} transparent opacity={isSelected ? 0.2 : 0.1} />
+          <meshBasicMaterial
+            color={isSelected ? "#00aaff" : isDropTarget ? "#22d3ee" : "#00ff88"}
+            transparent
+            opacity={isSelected ? 0.2 : isDropTarget ? 0.16 : 0.1}
+          />
         </mesh>
       )}
 
@@ -636,9 +819,9 @@ export function InteractiveTestTube3D({
       </mesh>
 
       {fillLevel > 0 && (
-        <group position={[0, -0.35 + fillLevel * 0.35, 0]}>
+        <group position={[0, -0.35 + visibleFillLevel * 0.35, 0]}>
           <mesh>
-            <cylinderGeometry args={[0.075, 0.075, fillLevel * 0.6, 16]} />
+            <cylinderGeometry args={[0.075, 0.075, visibleFillLevel * 0.6, 16]} />
             <meshPhysicalMaterial
               color={mixedColor}
               transparent
@@ -649,7 +832,7 @@ export function InteractiveTestTube3D({
             />
           </mesh>
           {/* Rounded bottom */}
-          <mesh position={[0, -fillLevel * 0.3, 0]}>
+          <mesh position={[0, -visibleFillLevel * 0.3, 0]}>
             <sphereGeometry args={[0.075, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
             <meshPhysicalMaterial
               color={mixedColor}
@@ -665,8 +848,15 @@ export function InteractiveTestTube3D({
 
       {isBubbling && fillLevel > 0 && (
         <group position={[0, -0.2, 0]} scale={0.5}>
-          <ReactionBubbles intensity={0.5} color={mixedColor} />
+          <ReactionBubbles intensity={solutionAppearance.bubbleIntensity} color={mixedColor} />
         </group>
+      )}
+
+      {(isBubbling || contents.some(c => c.pH < 4) || contents.some(c => c.pH > 10)) && fillLevel > 0 && (
+        <mesh position={[0, -0.1, 0]}>
+          <sphereGeometry args={[0.09, 16, 16]} />
+          <meshBasicMaterial color={mixedColor} transparent opacity={0.16} />
+        </mesh>
       )}
 
       {(hovered || isSelected) && (
@@ -691,40 +881,69 @@ export function InteractiveCylinder3D({
   contents,
   capacity,
   isSelected,
+  isDropTarget,
   label,
+  reactionEffect,
   onSelect,
+  onHoverChange,
+  onPointerDownCapture,
+  onPointerUpCapture,
+  onPointerMoveCapture,
 }: InteractiveContainerProps) {
   const [hovered, setHovered] = useState(false);
+  const [isBubbling, setIsBubbling] = useState(false);
 
   const totalVolume = contents.reduce((sum, c) => sum + c.amount, 0);
-  const fillLevel = Math.min(1, totalVolume / capacity);
+  const fillLevel = Math.min(1, Math.max(0.16, totalVolume / capacity));
+  const visibleFillLevel = fillLevel;
+  const solutionAppearance = useMemo(
+    () => getSolutionAppearance(contents, reactionEffect, false, 25),
+    [contents, reactionEffect]
+  );
+  const mixedColor = solutionAppearance.color;
 
-  const mixedColor = useMemo(() => {
-    if (contents.length === 0) return "#87ceeb";
-    if (contents.length === 1) return contents[0].color;
-    let r = 0, g = 0, b = 0, total = 0;
-    contents.forEach(c => {
-      const color = new THREE.Color(c.color);
-      r += color.r * c.amount;
-      g += color.g * c.amount;
-      b += color.b * c.amount;
-      total += c.amount;
-    });
-    if (total === 0) return "#87ceeb";
-    return new THREE.Color(r / total, g / total, b / total).getStyle();
-  }, [contents]);
+  useEffect(() => {
+    const shouldBubble = contents.length >= 2 || contents.some(c => c.pH < 4) || contents.some(c => c.pH > 10) || reactionEffect === 'bubbles' || reactionEffect === 'gas' || reactionEffect === 'explosion';
+    setIsBubbling(shouldBubble);
+  }, [contents, reactionEffect]);
 
   return (
     <group
       position={position}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        onPointerDownCapture?.(e);
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        onPointerUpCapture?.(e);
+      }}
+      onPointerMove={(e) => {
+        e.stopPropagation();
+        onPointerMoveCapture?.(e);
+      }}
       onClick={(e) => { e.stopPropagation(); onSelect?.(); }}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={(e) => { e.stopPropagation(); setHovered(false); document.body.style.cursor = "auto"; }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+        onHoverChange?.(true);
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        setHovered(false);
+        onHoverChange?.(false);
+        document.body.style.cursor = "auto";
+      }}
     >
-      {(hovered || isSelected) && (
+      {(hovered || isSelected || isDropTarget) && (
         <mesh>
           <cylinderGeometry args={[0.18, 0.18, 1.4, 16]} />
-          <meshBasicMaterial color={isSelected ? "#00aaff" : "#00ff88"} transparent opacity={isSelected ? 0.2 : 0.1} />
+          <meshBasicMaterial
+            color={isSelected ? "#00aaff" : isDropTarget ? "#22d3ee" : "#00ff88"}
+            transparent
+            opacity={isSelected ? 0.2 : isDropTarget ? 0.16 : 0.1}
+          />
         </mesh>
       )}
 
@@ -781,9 +1000,9 @@ export function InteractiveCylinder3D({
 
       {/* Liquid */}
       {fillLevel > 0 && (
-        <group position={[0, -0.6 + fillLevel * 0.6, 0]}>
+        <group position={[0, -0.6 + visibleFillLevel * 0.6, 0]}>
           <mesh>
-            <cylinderGeometry args={[0.14, 0.17, fillLevel * 1.2, 32]} />
+            <cylinderGeometry args={[0.14, 0.17, visibleFillLevel * 1.2, 32]} />
             <meshPhysicalMaterial
               color={mixedColor}
               transparent
@@ -794,6 +1013,13 @@ export function InteractiveCylinder3D({
             />
           </mesh>
         </group>
+      )}
+
+      {(isBubbling || contents.some(c => c.pH < 4) || contents.some(c => c.pH > 10)) && fillLevel > 0 && (
+        <mesh position={[0, -0.1, 0]}>
+          <cylinderGeometry args={[0.16, 0.16, 0.08, 16]} />
+          <meshBasicMaterial color={mixedColor} transparent opacity={0.16} />
+        </mesh>
       )}
 
       {(hovered || isSelected) && (
