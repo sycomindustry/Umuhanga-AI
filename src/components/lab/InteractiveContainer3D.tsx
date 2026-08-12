@@ -42,85 +42,190 @@ interface InteractiveContainerProps {
 function getSolutionAppearance(contents: ChemicalContent[], reactionEffect?: string | null, isHeating = false, temperature = 25) {
   const hasAcid = contents.some(c => c.pH < 4);
   const hasBase = contents.some(c => c.pH > 10);
-  const hasIndicator = contents.some(c => c.id === 'phenolphthalein');
+  const hasPhenolphthalein = contents.some(c => c.id === 'phenolphthalein');
+  const hasUniversalIndicator = contents.some(c => c.id === 'universal_indicator');
+  const hasBromothymolBlue = contents.some(c => c.id === 'bromothymol_blue');
+  const hasMethylOrange = contents.some(c => c.id === 'methyl_orange');
   const hasVinegar = contents.some(c => c.id === 'vinegar');
   const hasBakingSoda = contents.some(c => c.id === 'baking_soda');
+  const hasSodiumCarbonate = contents.some(c => c.id === 'sodium_carbonate');
   const hasSilverNitrate = contents.some(c => c.id === 'silver_nitrate');
   const hasPotassiumIodide = contents.some(c => c.id === 'potassium_iodide');
+  const hasSodiumChloride = contents.some(c => c.id === 'nacl');
   const hasCopperSulfate = contents.some(c => c.id === 'copper_sulfate');
   const hasIronNail = contents.some(c => c.id === 'iron_nail');
   const hasHCl = contents.some(c => c.id === 'hcl');
+  const hasH2SO4 = contents.some(c => c.id === 'h2so4');
+  const hasHNO3 = contents.some(c => c.id === 'hno3');
+  const hasH3PO4 = contents.some(c => c.id === 'h3po4');
   const hasZinc = contents.some(c => c.id === 'zinc_metal');
 
   let color = '#f7fbff';
-  let opacity = 0.96;
+  let opacity = 0.92;
   let cloudy = false;
   let bubbleIntensity = 0.3;
+  let surfaceOpacity = 0.54;
+  let precipitateColor: string | null = null;
+  let precipitateAmount = 0;
+  let foamIntensity = 0;
+  let vaporColor = "#ffffff";
 
   if (contents.length === 1) {
     const single = contents[0];
-    if (single.pH < 4) {
-      color = '#f8ef8b';
-      bubbleIntensity = 0.95;
-      cloudy = true;
-    } else if (single.pH > 10) {
-      color = '#9ed2ff';
-      bubbleIntensity = 0.9;
-      cloudy = true;
-    } else {
+    if (single.state === 'liquid') {
       color = single.color;
+      opacity = single.pH < 4 || single.pH > 10 ? 0.9 : 0.84;
+      surfaceOpacity = single.pH < 4 ? 0.68 : 0.56;
+      bubbleIntensity = single.pH < 4 ? 0.26 : single.pH > 10 ? 0.18 : 0.08;
+      cloudy = false;
+    } else {
+      color = single.color || '#f7fbff';
+      cloudy = true;
+      opacity = 0.94;
     }
   } else {
+    const totalVolume = contents.reduce((sum, c) => sum + c.amount, 0) || 1;
+    const liquidContents = contents.filter((c) => c.state === 'liquid');
+
+    if (liquidContents.length) {
+      const weightedColor = liquidContents.reduce(
+        (acc, item) => {
+          const itemColor = new THREE.Color(item.color);
+          const weight = item.amount / totalVolume;
+          acc.r += itemColor.r * weight;
+          acc.g += itemColor.g * weight;
+          acc.b += itemColor.b * weight;
+          return acc;
+        },
+        { r: 0, g: 0, b: 0 },
+      );
+
+      color = new THREE.Color(weightedColor.r, weightedColor.g, weightedColor.b).getStyle();
+    }
+
     if (hasAcid && !hasBase) {
-      color = '#f8ef8b';
-      bubbleIntensity = 1.0;
-      cloudy = true;
+      color = hasH2SO4
+        ? '#f8d36b'
+        : hasHNO3
+          ? '#ffe37a'
+          : hasH3PO4
+            ? '#f6e8b3'
+            : hasHCl
+              ? '#e6f6ff'
+              : '#f8efcc';
+      bubbleIntensity = 0.2;
+      opacity = 0.94;
+      surfaceOpacity = 0.78;
     }
     if (hasBase && !hasAcid) {
       color = '#9ed2ff';
-      bubbleIntensity = 0.95;
-      cloudy = true;
+      bubbleIntensity = 0.15;
+      opacity = 0.88;
+      surfaceOpacity = 0.62;
     }
     if (hasAcid && hasBase) {
-      color = hasIndicator ? '#ff5a8a' : '#fdf8e2';
-      bubbleIntensity = 1.15;
+      color = hasPhenolphthalein ? '#ff5a8a' : '#fdf8e2';
+      bubbleIntensity = 0.42;
       cloudy = true;
+      opacity = 0.95;
+      surfaceOpacity = 0.66;
     }
   }
 
-  if (hasVinegar && hasBakingSoda) {
+  if ((hasVinegar && hasBakingSoda) || (hasAcid && (hasBakingSoda || hasSodiumCarbonate))) {
     color = '#fce9b3';
     cloudy = true;
     bubbleIntensity = 1.1;
+    opacity = 0.95;
+    foamIntensity = 0.82;
+    surfaceOpacity = 0.78;
   }
 
   if (hasSilverNitrate && hasPotassiumIodide) {
     color = '#f3e8a6';
     cloudy = true;
-    bubbleIntensity = 0.55;
+    bubbleIntensity = 0.1;
+    opacity = 0.96;
+    precipitateColor = '#ffd700';
+    precipitateAmount = 0.18;
+  }
+
+  if (hasSilverNitrate && hasSodiumChloride) {
+    color = '#f8fafc';
+    cloudy = true;
+    bubbleIntensity = 0.08;
+    opacity = 0.97;
+    precipitateColor = '#f8fafc';
+    precipitateAmount = 0.16;
   }
 
   if (hasCopperSulfate && hasIronNail) {
     color = '#8fd0ff';
     cloudy = true;
-    bubbleIntensity = 0.4;
+    bubbleIntensity = 0.1;
+    opacity = 0.95;
+    precipitateColor = '#b87333';
+    precipitateAmount = 0.14;
+  }
+
+  if (hasCopperSulfate && hasBase) {
+    color = '#87ceeb';
+    cloudy = true;
+    bubbleIntensity = 0.06;
+    opacity = 0.97;
+    precipitateColor = '#87ceeb';
+    precipitateAmount = 0.18;
   }
 
   if (hasHCl && hasZinc) {
     color = '#eef6ff';
     bubbleIntensity = 1.0;
     cloudy = true;
+    opacity = 0.95;
+    foamIntensity = 0.18;
+  }
+
+  if (hasPhenolphthalein && hasBase) {
+    color = '#ff69b4';
+    opacity = 0.95;
+  }
+
+  if (hasMethylOrange) {
+    if (hasAcid) color = '#ff4d4d';
+    else if (hasBase) color = '#ffd54f';
+    else color = '#ffb347';
+    opacity = 0.95;
+  }
+
+  if (hasBromothymolBlue) {
+    if (hasAcid) color = '#facc15';
+    else if (hasBase) color = '#3b82f6';
+    else color = '#22c55e';
+    opacity = 0.95;
+  }
+
+  if (hasUniversalIndicator) {
+    const avgPH = contents.reduce((sum, item) => sum + item.pH * item.amount, 0) / (contents.reduce((sum, item) => sum + item.amount, 0) || 1);
+    if (avgPH < 3) color = '#ef4444';
+    else if (avgPH < 5) color = '#f97316';
+    else if (avgPH < 6) color = '#facc15';
+    else if (avgPH < 8) color = '#22c55e';
+    else if (avgPH < 10) color = '#3b82f6';
+    else color = '#7c3aed';
+    opacity = 0.95;
   }
 
   if (reactionEffect === 'explosion') {
     color = '#fff1c2';
     cloudy = true;
     bubbleIntensity = 1.25;
+    foamIntensity = 0.5;
   } else if (reactionEffect === 'precipitate') {
     cloudy = true;
-    bubbleIntensity = 0.45;
+    bubbleIntensity = Math.max(bubbleIntensity, 0.1);
   } else if (reactionEffect === 'gas' || reactionEffect === 'bubbles') {
     bubbleIntensity = 0.9;
+    foamIntensity = Math.max(foamIntensity, 0.25);
   } else if (reactionEffect === 'colorChange') {
     color = '#ffcf66';
     bubbleIntensity = 0.6;
@@ -129,9 +234,15 @@ function getSolutionAppearance(contents: ChemicalContent[], reactionEffect?: str
   if (isHeating && temperature > 70) {
     bubbleIntensity = Math.max(bubbleIntensity, 0.75);
     opacity = 0.9;
+    surfaceOpacity = 0.72;
+    vaporColor = hasHNO3 ? "#c98b49" : "#ffffff";
   }
 
-  return { color, opacity, cloudy, bubbleIntensity };
+  if (hasHNO3) {
+    vaporColor = "#b67a3c";
+  }
+
+  return { color, opacity, cloudy, bubbleIntensity, surfaceOpacity, precipitateColor, precipitateAmount, foamIntensity, vaporColor };
 }
 
 // Bubble effect for reactions
@@ -200,6 +311,40 @@ function VaporEffect({ intensity, color = "#ffffff" }: { intensity: number; colo
         </mesh>
       ))}
     </group>
+  );
+}
+
+function SurfaceFoam({ radius, color, intensity }: { radius: number; color: string; intensity: number }) {
+  return (
+    <group position={[0, 0, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[radius, 28]} />
+        <meshStandardMaterial color={color} transparent opacity={0.12 + intensity * 0.12} />
+      </mesh>
+      <mesh position={[0, 0.008, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[radius * 0.55, radius, 24]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.08 + intensity * 0.18} />
+      </mesh>
+    </group>
+  );
+}
+
+function PrecipitateLayer({
+  radiusTop,
+  radiusBottom,
+  height,
+  color,
+}: {
+  radiusTop: number;
+  radiusBottom: number;
+  height: number;
+  color: string;
+}) {
+  return (
+    <mesh position={[0, -0.45 + height / 2, 0]}>
+      <cylinderGeometry args={[radiusTop, radiusBottom, height, 24]} />
+      <meshStandardMaterial color={color} roughness={0.92} metalness={0.02} />
+    </mesh>
   );
 }
 
@@ -463,10 +608,10 @@ export function InteractiveBeaker3D({
             <meshPhysicalMaterial
               color={mixedColor}
               transparent
-              opacity={0.85}
+              opacity={solutionAppearance.opacity}
               roughness={0.05}
               metalness={0}
-              transmission={0.4}
+              transmission={0.32}
               thickness={0.8}
               ior={1.33}
             />
@@ -478,7 +623,7 @@ export function InteractiveBeaker3D({
             <meshPhysicalMaterial
               color={mixedColor}
               transparent
-              opacity={Math.max(0.5, solutionAppearance.opacity - 0.2)}
+              opacity={solutionAppearance.surfaceOpacity}
               roughness={0.1}
               metalness={0.1}
             />
@@ -489,7 +634,26 @@ export function InteractiveBeaker3D({
             <torusGeometry args={[0.39 * visibleFillLevel + 0.05, 0.015, 8, 32]} />
             <meshPhysicalMaterial color={mixedColor} transparent opacity={0.4} />
           </mesh>
+
+          {solutionAppearance.foamIntensity > 0 ? (
+            <group position={[0, fillLevel * 0.9 + 0.015, 0]}>
+              <SurfaceFoam
+                radius={0.34 * visibleFillLevel + 0.06}
+                color={mixedColor}
+                intensity={solutionAppearance.foamIntensity}
+              />
+            </group>
+          ) : null}
         </group>
+      )}
+
+      {solutionAppearance.precipitateColor && solutionAppearance.precipitateAmount > 0 && fillLevel > 0 && (
+        <PrecipitateLayer
+          radiusTop={0.32}
+          radiusBottom={0.36}
+          height={solutionAppearance.precipitateAmount}
+          color={solutionAppearance.precipitateColor}
+        />
       )}
 
       {/* Bubbling effect */}
@@ -505,9 +669,14 @@ export function InteractiveBeaker3D({
       )}
 
       {/* Steam when hot */}
-      {isHeating && temperature > 70 && (
-        <VaporEffect intensity={(temperature - 70) / 30} />
-      )}
+      {(isHeating && temperature > 70) || reactionEffect === 'gas' ? (
+        <group position={[0, fillLevel * 0.95 + 0.16, 0]}>
+          <VaporEffect
+            intensity={reactionEffect === 'gas' ? Math.max(0.55, (temperature - 50) / 35 || 0.55) : (temperature - 70) / 30}
+            color={solutionAppearance.vaporColor}
+          />
+        </group>
+      ) : null}
 
       {/* Explosion effect */}
       {isExploding && (
@@ -667,26 +836,59 @@ export function InteractiveFlask3D({
       </mesh>
 
       {fillLevel > 0 && (
-        <mesh position={[0, visibleFillLevel * 0.3, 0]}>
-          <coneGeometry args={[0.35 + (1 - visibleFillLevel) * 0.15, visibleFillLevel * 0.6, 32]} />
-          <meshPhysicalMaterial
-            color={mixedColor}
-            transparent
-            opacity={0.8}
-            roughness={0.05}
-            transmission={0.35}
-            ior={1.33}
-          />
-        </mesh>
+        <group>
+          <mesh position={[0, visibleFillLevel * 0.3, 0]}>
+            <coneGeometry args={[0.35 + (1 - visibleFillLevel) * 0.15, visibleFillLevel * 0.6, 32]} />
+            <meshPhysicalMaterial
+              color={mixedColor}
+              transparent
+              opacity={solutionAppearance.opacity}
+              roughness={0.05}
+              transmission={0.28}
+              ior={1.33}
+            />
+          </mesh>
+          <mesh position={[0, visibleFillLevel * 0.6 + 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[0.26 + (1 - visibleFillLevel) * 0.08, 24]} />
+            <meshPhysicalMaterial
+              color={mixedColor}
+              transparent
+              opacity={solutionAppearance.surfaceOpacity}
+              roughness={0.1}
+              metalness={0.08}
+            />
+          </mesh>
+          {solutionAppearance.foamIntensity > 0 ? (
+            <group position={[0, visibleFillLevel * 0.6 + 0.025, 0]}>
+              <SurfaceFoam
+                radius={0.22 + (1 - visibleFillLevel) * 0.08}
+                color={mixedColor}
+                intensity={solutionAppearance.foamIntensity}
+              />
+            </group>
+          ) : null}
+        </group>
       )}
 
       {isBubbling && fillLevel > 0 && (
         <ReactionBubbles intensity={solutionAppearance.bubbleIntensity} color={mixedColor} />
       )}
 
-      {isHeating && temperature > 70 && (
-        <VaporEffect intensity={(temperature - 70) / 30} />
+      {solutionAppearance.precipitateColor && solutionAppearance.precipitateAmount > 0 && fillLevel > 0 && (
+        <mesh position={[0, 0.02, 0]}>
+          <coneGeometry args={[0.16, solutionAppearance.precipitateAmount, 24]} />
+          <meshStandardMaterial color={solutionAppearance.precipitateColor} roughness={0.92} />
+        </mesh>
       )}
+
+      {(isHeating && temperature > 70) || reactionEffect === 'gas' ? (
+        <group position={[0, 0.68, 0]}>
+          <VaporEffect
+            intensity={reactionEffect === 'gas' ? Math.max(0.45, (temperature - 40) / 40 || 0.45) : (temperature - 70) / 30}
+            color={solutionAppearance.vaporColor}
+          />
+        </group>
+      ) : null}
 
       {(hovered || isSelected) && (
         <Html position={[0, 1.3, 0]} center>
@@ -825,9 +1027,9 @@ export function InteractiveTestTube3D({
             <meshPhysicalMaterial
               color={mixedColor}
               transparent
-              opacity={0.85}
+              opacity={solutionAppearance.opacity}
               roughness={0.05}
-              transmission={0.4}
+              transmission={0.32}
               ior={1.33}
             />
           </mesh>
@@ -837,12 +1039,27 @@ export function InteractiveTestTube3D({
             <meshPhysicalMaterial
               color={mixedColor}
               transparent
-              opacity={0.85}
+              opacity={solutionAppearance.opacity}
               roughness={0.05}
-              transmission={0.4}
+              transmission={0.32}
               ior={1.33}
             />
           </mesh>
+          <mesh position={[0, visibleFillLevel * 0.31, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[0.071, 18]} />
+            <meshPhysicalMaterial
+              color={mixedColor}
+              transparent
+              opacity={solutionAppearance.surfaceOpacity}
+              roughness={0.1}
+              metalness={0.08}
+            />
+          </mesh>
+          {solutionAppearance.foamIntensity > 0 ? (
+            <group position={[0, visibleFillLevel * 0.33, 0]}>
+              <SurfaceFoam radius={0.068} color={mixedColor} intensity={solutionAppearance.foamIntensity} />
+            </group>
+          ) : null}
         </group>
       )}
 
@@ -857,6 +1074,19 @@ export function InteractiveTestTube3D({
           <sphereGeometry args={[0.09, 16, 16]} />
           <meshBasicMaterial color={mixedColor} transparent opacity={0.16} />
         </mesh>
+      )}
+
+      {solutionAppearance.precipitateColor && solutionAppearance.precipitateAmount > 0 && fillLevel > 0 && (
+        <mesh position={[0, -0.28, 0]}>
+          <sphereGeometry args={[0.06, 16, 12, 0, Math.PI * 2, Math.PI, Math.PI / 2]} />
+          <meshStandardMaterial color={solutionAppearance.precipitateColor} roughness={0.95} />
+        </mesh>
+      )}
+
+      {reactionEffect === 'gas' && fillLevel > 0 && (
+        <group position={[0, 0.22, 0]}>
+          <VaporEffect intensity={0.45} color={solutionAppearance.vaporColor} />
+        </group>
       )}
 
       {(hovered || isSelected) && (
@@ -1006,12 +1236,27 @@ export function InteractiveCylinder3D({
             <meshPhysicalMaterial
               color={mixedColor}
               transparent
-              opacity={0.85}
+              opacity={solutionAppearance.opacity}
               roughness={0.05}
-              transmission={0.4}
+              transmission={0.32}
               ior={1.33}
             />
           </mesh>
+          <mesh position={[0, visibleFillLevel * 0.6 + 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[0.145, 24]} />
+            <meshPhysicalMaterial
+              color={mixedColor}
+              transparent
+              opacity={solutionAppearance.surfaceOpacity}
+              roughness={0.1}
+              metalness={0.08}
+            />
+          </mesh>
+          {solutionAppearance.foamIntensity > 0 ? (
+            <group position={[0, visibleFillLevel * 0.62, 0]}>
+              <SurfaceFoam radius={0.14} color={mixedColor} intensity={solutionAppearance.foamIntensity} />
+            </group>
+          ) : null}
         </group>
       )}
 
@@ -1020,6 +1265,19 @@ export function InteractiveCylinder3D({
           <cylinderGeometry args={[0.16, 0.16, 0.08, 16]} />
           <meshBasicMaterial color={mixedColor} transparent opacity={0.16} />
         </mesh>
+      )}
+
+      {solutionAppearance.precipitateColor && solutionAppearance.precipitateAmount > 0 && fillLevel > 0 && (
+        <mesh position={[0, -0.58, 0]}>
+          <cylinderGeometry args={[0.12, 0.14, solutionAppearance.precipitateAmount, 18]} />
+          <meshStandardMaterial color={solutionAppearance.precipitateColor} roughness={0.94} />
+        </mesh>
+      )}
+
+      {reactionEffect === 'gas' && fillLevel > 0 && (
+        <group position={[0, 0.18, 0]}>
+          <VaporEffect intensity={0.42} color={solutionAppearance.vaporColor} />
+        </group>
       )}
 
       {(hovered || isSelected) && (

@@ -102,18 +102,18 @@ const VirtualLab = () => {
     const labLabel = showInteractiveLab.charAt(0).toUpperCase() + showInteractiveLab.slice(1);
     
     return (
-      <div className="h-screen flex flex-col">
-        <div className="bg-slate-900 border-b border-slate-700 px-4 py-2 flex items-center justify-between">
+      <div className="h-screen flex flex-col bg-slate-100">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-2 shadow-sm">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={() => setShowInteractiveLab(false)}
-            className="text-slate-300 hover:text-white"
+            className="text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Experiments
+            Back to laboratory directory
           </Button>
-          <Badge variant="outline" className="text-cyan-400 border-cyan-400/50">
+          <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-700">
             <Sparkles className="w-3 h-3 mr-1" />
             {labLabel} Lab
           </Badge>
@@ -121,7 +121,7 @@ const VirtualLab = () => {
             variant="ghost" 
             size="icon" 
             onClick={() => setShowInteractiveLab(false)}
-            className="text-slate-400 hover:text-white"
+            className="text-slate-500 hover:text-slate-900"
           >
             <X className="w-5 h-5" />
           </Button>
@@ -134,17 +134,19 @@ const VirtualLab = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-gradient-primary text-white shadow-strong">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f8fbfd_0%,#eef5f7_100%)]">
+      <header className="border-b border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f1f7fb_55%,#e3f0f9_100%)] text-slate-900 shadow-sm">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="bg-white/20 p-2 rounded-lg">
+              <div className="rounded-lg bg-sky-100 p-2 text-sky-700">
                 <Beaker className="w-8 h-8" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold">Virtual Science Laboratory</h1>
-                <p className="text-white/90">Explore experiments safely online</p>
+                <p className="text-slate-600">
+                  A bright, familiar digital laboratory for experiments, demonstrations, practice, and guided exploration
+                </p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -169,21 +171,21 @@ const VirtualLab = () => {
 
       <main className="container mx-auto px-4 py-8">
         {/* Umuhanga AI Virtual Laboratory */}
-        <Card className="mb-6 border-2 border-cyan-500/40 bg-gradient-to-r from-slate-900 to-indigo-950">
+        <Card className="mb-6 border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f6fbff_55%,#edf5f8_100%)] shadow-sm">
           <CardHeader>
             <div className="flex flex-wrap items-center gap-3">
-              <div className="bg-gradient-to-br from-cyan-500 to-indigo-600 p-3 rounded-xl shadow-lg">
-                <Sparkles className="w-6 h-6 text-white" />
+              <div className="rounded-xl bg-sky-100 p-3 text-sky-700 shadow-sm">
+                <Sparkles className="w-6 h-6" />
               </div>
               <div className="flex-1">
-                <CardTitle className="text-lg text-slate-50">Umuhanga AI Virtual Laboratory</CardTitle>
-                <CardDescription className="text-slate-400">
-                  3D chemistry bench, interactive periodic table, molecular visualisation and a multilingual AI scientist
+                <CardTitle className="text-lg text-slate-900">Umuhanga AI Virtual Laboratory</CardTitle>
+                <CardDescription className="text-slate-600">
+                  Real-world chemistry room styling, practical bench work, guided experiments, and multilingual scientific support for everyone
                 </CardDescription>
               </div>
               <Button
                 onClick={() => navigate("/umuhanga-lab")}
-                className="bg-gradient-to-r from-cyan-500 to-indigo-600 text-white"
+                className="bg-sky-600 text-white hover:bg-sky-700"
               >
                 Enter Laboratory
               </Button>
@@ -194,77 +196,73 @@ const VirtualLab = () => {
         {/* Interactive Labs */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Chemistry Lab */}
-          <Card className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-2 border-cyan-500/30 hover:border-cyan-400/50 transition-all">
+          <Card className="border border-slate-200 bg-white/90 shadow-sm transition-all hover:border-sky-300 hover:shadow-md">
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-cyan-500 to-blue-600 p-3 rounded-xl shadow-lg">
-                  <FlaskConical className="w-6 h-6 text-white" />
+                <div className="rounded-xl bg-sky-100 p-3 text-sky-700 shadow-sm">
+                  <FlaskConical className="w-6 h-6" />
                 </div>
                 <div>
                   <CardTitle className="text-lg">Chemistry Lab</CardTitle>
-                  <CardDescription className="text-sm">Mix chemicals, watch reactions</CardDescription>
+                  <CardDescription className="text-sm">Prepare materials, run reactions, and observe evidence</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => setShowInteractiveLab('chemistry')} className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white">
+              <Button onClick={() => setShowInteractiveLab('chemistry')} className="w-full bg-sky-600 text-white hover:bg-sky-700">
                 <Beaker className="w-4 h-4 mr-2" />
-                Launch
+                Open lab
               </Button>
             </CardContent>
           </Card>
 
           {/* Physics Lab */}
-          <Card className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-2 border-indigo-500/30 hover:border-indigo-400/50 transition-all">
+          <Card className="border border-slate-200 bg-white/90 shadow-sm transition-all hover:border-violet-300 hover:shadow-md">
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 rounded-xl shadow-lg">
-                  <Atom className="w-6 h-6 text-white" />
+                <div className="rounded-xl bg-violet-100 p-3 text-violet-700 shadow-sm">
+                  <Atom className="w-6 h-6" />
                 </div>
                 <div>
                   <CardTitle className="text-lg">Physics Lab</CardTitle>
-                  <CardDescription className="text-sm">Pendulums, springs, mechanics</CardDescription>
+                  <CardDescription className="text-sm">Test motion, forces, energy, and measurement setups</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => setShowInteractiveLab('physics')} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white">
+              <Button onClick={() => setShowInteractiveLab('physics')} className="w-full bg-violet-600 text-white hover:bg-violet-700">
                 <Atom className="w-4 h-4 mr-2" />
-                Launch
+                Open lab
               </Button>
             </CardContent>
           </Card>
 
           {/* Biology Lab */}
-          <Card className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 border-2 border-emerald-500/30 hover:border-emerald-400/50 transition-all">
+          <Card className="border border-slate-200 bg-white/90 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md">
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-3 rounded-xl shadow-lg">
-                  <Microscope className="w-6 h-6 text-white" />
+                <div className="rounded-xl bg-emerald-100 p-3 text-emerald-700 shadow-sm">
+                  <Microscope className="w-6 h-6" />
                 </div>
                 <div>
                   <CardTitle className="text-lg">Biology Lab</CardTitle>
-                  <CardDescription className="text-sm">Microscopy, specimens, stains</CardDescription>
+                  <CardDescription className="text-sm">Microscopy, specimens, staining, and close observation</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => setShowInteractiveLab('biology')} className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white">
+              <Button onClick={() => setShowInteractiveLab('biology')} className="w-full bg-emerald-600 text-white hover:bg-emerald-700">
                 <Microscope className="w-4 h-4 mr-2" />
-                Launch
+                Open lab
               </Button>
             </CardContent>
           </Card>
         </div>
 
         <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-4">
-            <span className="bg-gradient-primary bg-clip-text text-transparent">
-              Available Experiments
-            </span>
-          </h2>
+          <h2 className="mb-4 text-3xl font-bold text-slate-900">Available Experiments</h2>
           <p className="text-muted-foreground text-lg">
-            Choose an experiment to begin your virtual lab experience
+            Choose a guided activity to begin a realistic digital laboratory session
           </p>
         </div>
 
@@ -295,13 +293,13 @@ const VirtualLab = () => {
               return (
                 <Card 
                   key={experiment.id}
-                  className="hover:shadow-medium transition-smooth cursor-pointer border-2 hover:border-primary"
+                  className="cursor-pointer border border-slate-200 bg-white/90 transition-smooth hover:border-sky-300 hover:shadow-medium"
                   onClick={() => navigate(`/virtual-lab/${experiment.id}`)}
                 >
                   <CardHeader>
                     <div className="flex items-start gap-3">
-                      <div className="bg-gradient-primary p-3 rounded-lg">
-                        <Icon className="w-6 h-6 text-white" />
+                      <div className="rounded-lg bg-sky-100 p-3 text-sky-700">
+                        <Icon className="w-6 h-6" />
                       </div>
                       <div className="flex-1">
                         <CardTitle className="text-lg mb-1">{experiment.title}</CardTitle>
@@ -320,7 +318,7 @@ const VirtualLab = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Button className="w-full bg-gradient-primary hover:opacity-90">
+                    <Button className="w-full bg-sky-600 text-white hover:bg-sky-700">
                       Start Experiment
                     </Button>
                   </CardContent>

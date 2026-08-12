@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
+import type { ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { ChemicalContent } from "./InteractiveContainer3D";
@@ -21,7 +22,7 @@ export const SHELF_CHEMICALS: Record<string, ChemicalContent & { formula: string
     id: 'hcl',
     name: 'Hydrochloric Acid',
     formula: 'HCl',
-    color: '#ffeb3b',
+    color: '#d8f3ff',
     amount: 50,
     pH: 1,
     reactivity: 'high',
@@ -43,12 +44,34 @@ export const SHELF_CHEMICALS: Record<string, ChemicalContent & { formula: string
     id: 'h2so4',
     name: 'Sulfuric Acid',
     formula: 'H₂SO₄',
-    color: '#ffc107',
+    color: '#f4d35e',
     amount: 30,
     pH: 0.5,
     reactivity: 'high',
     state: 'liquid',
     hazardLevel: 'extreme'
+  },
+  hno3: {
+    id: 'hno3',
+    name: 'Nitric Acid',
+    formula: 'HNO₃',
+    color: '#ffe28a',
+    amount: 30,
+    pH: 0.8,
+    reactivity: 'high',
+    state: 'liquid',
+    hazardLevel: 'extreme'
+  },
+  h3po4: {
+    id: 'h3po4',
+    name: 'Phosphoric Acid',
+    formula: 'H₃PO₄',
+    color: '#f4ebc1',
+    amount: 40,
+    pH: 1.5,
+    reactivity: 'medium',
+    state: 'liquid',
+    hazardLevel: 'danger'
   },
   sodium: {
     id: 'sodium',
@@ -102,6 +125,28 @@ export const SHELF_CHEMICALS: Record<string, ChemicalContent & { formula: string
     amount: 30,
     pH: 8.3,
     reactivity: 'medium',
+    state: 'solid',
+    hazardLevel: 'safe'
+  },
+  sodium_carbonate: {
+    id: 'sodium_carbonate',
+    name: 'Sodium Carbonate',
+    formula: 'Na₂CO₃',
+    color: '#f7f7f7',
+    amount: 25,
+    pH: 11.2,
+    reactivity: 'medium',
+    state: 'solid',
+    hazardLevel: 'caution'
+  },
+  nacl: {
+    id: 'nacl',
+    name: 'Sodium Chloride',
+    formula: 'NaCl',
+    color: '#ffffff',
+    amount: 25,
+    pH: 7,
+    reactivity: 'low',
     state: 'solid',
     hazardLevel: 'safe'
   },
@@ -182,6 +227,50 @@ export const SHELF_CHEMICALS: Record<string, ChemicalContent & { formula: string
     state: 'liquid',
     hazardLevel: 'caution'
   },
+  universal_indicator: {
+    id: 'universal_indicator',
+    name: 'Universal Indicator',
+    formula: 'Indicator Mix',
+    color: '#49c46b',
+    amount: 20,
+    pH: 7,
+    reactivity: 'low',
+    state: 'liquid',
+    hazardLevel: 'caution'
+  },
+  bromothymol_blue: {
+    id: 'bromothymol_blue',
+    name: 'Bromothymol Blue',
+    formula: 'C₂₇H₂₈Br₂O₅S',
+    color: '#1e90ff',
+    amount: 15,
+    pH: 7,
+    reactivity: 'low',
+    state: 'liquid',
+    hazardLevel: 'caution'
+  },
+  methyl_orange: {
+    id: 'methyl_orange',
+    name: 'Methyl Orange',
+    formula: 'C₁₄H₁₄N₃NaO₃S',
+    color: '#ff9800',
+    amount: 15,
+    pH: 7,
+    reactivity: 'low',
+    state: 'liquid',
+    hazardLevel: 'caution'
+  },
+  ethanol: {
+    id: 'ethanol',
+    name: 'Ethanol',
+    formula: 'C₂H₅OH',
+    color: '#dff7ff',
+    amount: 40,
+    pH: 7,
+    reactivity: 'high',
+    state: 'liquid',
+    hazardLevel: 'danger'
+  },
   potassium_permanganate: {
     id: 'potassium_permanganate',
     name: 'Potassium Permanganate',
@@ -207,10 +296,8 @@ interface ChemicalBottleProps {
 
 function ChemicalBottle({ chemical, position, onSelect, onDragStart, onDragEnd, isSelected, isDragging }: ChemicalBottleProps) {
   const [hovered, setHovered] = useState(false);
-  const [dragOffset, setDragOffset] = useState<[number, number, number]>([0, 0, 0]);
   const bottleRef = useRef<THREE.Group>(null);
   const isDraggingRef = useRef(false);
-  const { camera, gl } = useThree();
 
   const hazardColors = {
     safe: '#22c55e',
@@ -229,14 +316,14 @@ function ChemicalBottle({ chemical, position, onSelect, onDragStart, onDragEnd, 
     state: chemical.state,
   }), [chemical]);
 
-  const handlePointerDown = (e: any) => {
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     isDraggingRef.current = true;
     onDragStart?.(getChemicalContent());
     document.body.style.cursor = "grabbing";
   };
 
-  const handlePointerUp = (e: any) => {
+  const handlePointerUp = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     if (isDraggingRef.current) {
       isDraggingRef.current = false;
@@ -251,6 +338,9 @@ function ChemicalBottle({ chemical, position, onSelect, onDragStart, onDragEnd, 
       bottleRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 2) * 0.1;
     }
   });
+
+  const liquidFillHeight = chemical.state === 'liquid' ? 0.25 : 0.17;
+  const solidHeight = chemical.state === 'solid' ? 0.16 : 0;
 
   return (
     <group
@@ -292,28 +382,62 @@ function ChemicalBottle({ chemical, position, onSelect, onDragStart, onDragEnd, 
       <mesh castShadow receiveShadow>
         <cylinderGeometry args={[0.1, 0.12, 0.4, 16]} />
         <meshPhysicalMaterial
-          color={chemical.color}
+          color="#eef8ff"
           transparent
-          opacity={chemical.state === 'solid' ? 0.3 : 0.15}
-          roughness={0.1}
+          opacity={0.16}
+          roughness={0.06}
           metalness={0}
-          transmission={0.8}
+          transmission={0.92}
           thickness={0.5}
           ior={1.5}
         />
       </mesh>
 
       {/* Liquid/solid inside */}
-      <mesh position={[0, -0.05, 0]}>
-        <cylinderGeometry args={[0.085, 0.11, 0.28, 16]} />
-        <meshPhysicalMaterial
-          color={chemical.color}
-          transparent
-          opacity={0.9}
-          roughness={chemical.state === 'solid' ? 0.8 : 0.1}
-          transmission={chemical.state === 'solid' ? 0 : 0.3}
-        />
-      </mesh>
+      {chemical.state === 'liquid' ? (
+        <group position={[0, -0.1, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.082, 0.104, liquidFillHeight, 16]} />
+            <meshPhysicalMaterial
+              color={chemical.color}
+              transparent
+              opacity={0.92}
+              roughness={0.08}
+              transmission={0.35}
+              ior={1.33}
+            />
+          </mesh>
+          <mesh position={[0, liquidFillHeight / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[0.082, 20]} />
+            <meshPhysicalMaterial
+              color={chemical.color}
+              transparent
+              opacity={0.58}
+              roughness={0.12}
+              metalness={0.08}
+            />
+          </mesh>
+          <mesh position={[0, liquidFillHeight / 2 + 0.005, 0]}>
+            <torusGeometry args={[0.08, 0.006, 8, 20]} />
+            <meshPhysicalMaterial color={chemical.color} transparent opacity={0.34} />
+          </mesh>
+        </group>
+      ) : (
+        <group position={[0, -0.11, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.082, 0.104, solidHeight, 16]} />
+            <meshStandardMaterial
+              color={chemical.color}
+              roughness={0.88}
+              metalness={chemical.id.includes('metal') || chemical.id.includes('nail') ? 0.55 : 0.04}
+            />
+          </mesh>
+          <mesh position={[0, solidHeight / 2, 0]}>
+            <cylinderGeometry args={[0.078, 0.1, 0.02, 16]} />
+            <meshStandardMaterial color={chemical.color} roughness={0.94} />
+          </mesh>
+        </group>
+      )}
 
       {/* Cap */}
       <mesh position={[0, 0.24, 0]}>
@@ -342,7 +466,9 @@ function ChemicalBottle({ chemical, position, onSelect, onDragStart, onDragEnd, 
           }`}>
             <p className="text-sm font-bold text-white">{chemical.name}</p>
             <p className="text-xs text-slate-300 font-mono">{chemical.formula}</p>
-            <p className="text-[10px] text-slate-400 mt-1">pH: {chemical.pH}</p>
+            <p className="text-[10px] text-slate-400 mt-1">
+              pH: {chemical.pH} · State: {chemical.state}
+            </p>
             <p className={`text-[10px] mt-1 font-semibold ${
               chemical.hazardLevel === 'extreme' ? 'text-red-400' :
               chemical.hazardLevel === 'danger' ? 'text-orange-400' :
@@ -373,13 +499,17 @@ interface ChemicalShelfProps {
 
 export function ChemicalShelf3D({ position, onSelectChemical, onDragStart, onDragEnd, selectedChemicalId, draggingChemicalId }: ChemicalShelfProps) {
   const chemicals = Object.values(SHELF_CHEMICALS);
-  const rows = 2;
+  const rows = 3;
   const itemsPerRow = Math.ceil(chemicals.length / rows);
 
   return (
     <group position={position}>
       {/* Shelf frame */}
-      <mesh position={[0, 0.5, -0.15]} castShadow receiveShadow>
+      <mesh position={[0, 0.92, -0.15]} castShadow receiveShadow>
+        <boxGeometry args={[2.4, 0.08, 0.35]} />
+        <meshStandardMaterial color="#5d4037" roughness={0.8} />
+      </mesh>
+      <mesh position={[0, 0.46, -0.15]} castShadow receiveShadow>
         <boxGeometry args={[2.4, 0.08, 0.35]} />
         <meshStandardMaterial color="#5d4037" roughness={0.8} />
       </mesh>
@@ -388,17 +518,17 @@ export function ChemicalShelf3D({ position, onSelectChemical, onDragStart, onDra
         <meshStandardMaterial color="#5d4037" roughness={0.8} />
       </mesh>
       {/* Back panel */}
-      <mesh position={[0, 0.25, -0.3]}>
-        <boxGeometry args={[2.5, 0.7, 0.04]} />
+      <mesh position={[0, 0.47, -0.3]}>
+        <boxGeometry args={[2.5, 1.2, 0.04]} />
         <meshStandardMaterial color="#3e2723" roughness={0.9} />
       </mesh>
       {/* Side panels */}
-      <mesh position={[-1.22, 0.25, -0.15]}>
-        <boxGeometry args={[0.04, 0.7, 0.35]} />
+      <mesh position={[-1.22, 0.47, -0.15]}>
+        <boxGeometry args={[0.04, 1.2, 0.35]} />
         <meshStandardMaterial color="#4e342e" roughness={0.85} />
       </mesh>
-      <mesh position={[1.22, 0.25, -0.15]}>
-        <boxGeometry args={[0.04, 0.7, 0.35]} />
+      <mesh position={[1.22, 0.47, -0.15]}>
+        <boxGeometry args={[0.04, 1.2, 0.35]} />
         <meshStandardMaterial color="#4e342e" roughness={0.85} />
       </mesh>
 
@@ -406,8 +536,8 @@ export function ChemicalShelf3D({ position, onSelectChemical, onDragStart, onDra
       {chemicals.map((chemical, i) => {
         const row = Math.floor(i / itemsPerRow);
         const col = i % itemsPerRow;
-        const x = -1.3 + col * 0.32;
-        const y = row === 0 ? 0.15 : (row === 1 ? 0.65 : 1.15);
+        const x = -0.95 + col * 0.38;
+        const y = row === 0 ? 0.14 : row === 1 ? 0.6 : 1.06;
         
         return (
           <ChemicalBottle
@@ -424,9 +554,9 @@ export function ChemicalShelf3D({ position, onSelectChemical, onDragStart, onDra
       })}
 
       {/* Shelf label */}
-      <Html position={[0, 0.95, 0]} center>
+      <Html position={[0, 1.36, 0]} center>
         <div className="bg-slate-800/90 px-4 py-1 rounded-lg border border-slate-600">
-          <p className="text-xs font-semibold text-slate-200">🧪 Chemical Reagents</p>
+          <p className="text-xs font-semibold text-slate-200">🧪 Chemical Reagents and Acids</p>
         </div>
       </Html>
     </group>

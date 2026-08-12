@@ -41,7 +41,13 @@ import {
   type ChemicalContent,
 } from "./InteractiveContainer3D";
 import { ChemicalShelf3D, SHELF_CHEMICALS } from "./ChemicalShelf3D";
-import { RealisticBunsenBurner3D, RealisticTripod3D } from "./RealisticEquipment3D";
+import {
+  RealisticBunsenBurner3D,
+  RealisticChemicalBottle3D,
+  RealisticPHMeter3D,
+  RealisticThermometer3D,
+  RealisticTripod3D,
+} from "./RealisticEquipment3D";
 import { useLabSounds } from "@/hooks/useLabSounds";
 import { LabNotebook } from "./LabNotebook";
 
@@ -56,11 +62,31 @@ interface LabContainer {
   label: string;
 }
 
+type BenchEquipmentKind =
+  | "washBottle"
+  | "retortStand"
+  | "balance"
+  | "tubeRack"
+  | "phMeter"
+  | "thermometer";
+
+interface BenchEquipmentItem {
+  id: string;
+  kind: BenchEquipmentKind;
+  label: string;
+  position: [number, number, number];
+  defaultPosition: [number, number, number];
+  visible: boolean;
+}
+
 interface ReactionEffect {
   type: "explosion" | "bubbles" | "precipitate" | "colorChange" | "gas" | "heat";
   intensity: number;
   resultColor?: string;
   message: string;
+  equation: string;
+  visibleEvidence: string;
+  realWorldNote: string;
 }
 
 interface DemoPreset {
@@ -154,36 +180,87 @@ const INITIAL_CONTAINERS: LabContainer[] = [
   },
 ];
 
+const INITIAL_BENCH_EQUIPMENT: BenchEquipmentItem[] = [
+  {
+    id: "wash-bottle",
+    kind: "washBottle",
+    label: "Wash Bottle",
+    position: [-2.35, -0.5, 1.02],
+    defaultPosition: [-2.35, -0.5, 1.02],
+    visible: true,
+  },
+  {
+    id: "retort-stand",
+    kind: "retortStand",
+    label: "Retort Stand",
+    position: [2.32, -0.68, 0.56],
+    defaultPosition: [2.32, -0.68, 0.56],
+    visible: true,
+  },
+  {
+    id: "digital-balance",
+    kind: "balance",
+    label: "Digital Balance",
+    position: [2.08, -0.59, 1.08],
+    defaultPosition: [2.08, -0.59, 1.08],
+    visible: true,
+  },
+  {
+    id: "tube-rack",
+    kind: "tubeRack",
+    label: "Tube Rack",
+    position: [1.28, -0.62, 1.06],
+    defaultPosition: [1.28, -0.62, 1.06],
+    visible: true,
+  },
+  {
+    id: "ph-meter",
+    kind: "phMeter",
+    label: "pH Meter",
+    position: [-1.64, -0.28, 1.08],
+    defaultPosition: [-1.64, -0.28, 1.08],
+    visible: true,
+  },
+  {
+    id: "thermometer",
+    kind: "thermometer",
+    label: "Thermometer",
+    position: [-0.66, -0.3, 1.22],
+    defaultPosition: [-0.66, -0.3, 1.22],
+    visible: true,
+  },
+];
+
 const DEMO_PRESETS: DemoPreset[] = [
   {
     id: "neutralization",
     title: "Acid-Base Neutralization",
     description:
-      "Guide the student through a classic acid and base reaction with visible evidence and gentle heat release.",
-    objective: "Show how acids and bases react to form a safer, more balanced solution.",
-    expected: "The solution changes appearance, warms slightly, and produces a clear explanation of neutralization.",
-    materials: ["Acetic acid", "Sodium bicarbonate", "Phenolphthalein", "Main beaker"],
+      "Walk through a classic strong acid and strong base reaction with visible indicator response and gentle heat release.",
+    objective: "Show how a normal acid-base neutralization forms water and a salt while the pH moves toward neutral.",
+    expected: "The solution stays liquid, the indicator shifts toward a neutral colour, and the vessel warms slightly.",
+    materials: ["Hydrochloric acid", "Sodium hydroxide", "Bromothymol blue", "Main beaker"],
     steps: [
       "Select the main beaker as the active workstation.",
-      "Measure and add vinegar before introducing baking soda.",
-      "Add indicator and observe the solution colour and temperature.",
+      "Measure and add hydrochloric acid first, then add sodium hydroxide carefully.",
+      "Add indicator and observe the solution colour, pH shift, and temperature rise.",
       "Record the evidence of neutralization in the notebook.",
     ],
     targetContainerId: "beaker-1",
     chemicals: [
-      { id: "vinegar", amount: 30 },
-      { id: "baking_soda", amount: 20 },
-      { id: "phenolphthalein", amount: 10 },
+      { id: "hcl", amount: 25 },
+      { id: "naoh", amount: 25 },
+      { id: "bromothymol_blue", amount: 10 },
     ],
     explanation:
-      "Hydrogen ions from the acid react with basic ions and produce new substances. Gas evolution and heat help students identify that a chemical reaction has happened.",
+      "Hydrogen ions from the acid combine with hydroxide ions from the alkali to form water. The remaining ions stay in solution as a salt, and the mixture warms slightly as energy is released.",
   },
   {
     id: "redox",
     title: "Copper Displacement",
     description:
       "Demonstrate a single displacement reaction where a more reactive metal replaces copper from solution.",
-    objective: "Observe oxidation and reduction in a way students can see directly on the metal surface.",
+    objective: "Observe oxidation and reduction directly on the metal surface.",
     expected: "Copper forms on the iron, and the original blue solution changes as a new iron salt is produced.",
     materials: ["Copper sulfate", "Iron nail", "Reaction flask"],
     steps: [
@@ -204,8 +281,8 @@ const DEMO_PRESETS: DemoPreset[] = [
     id: "gas",
     title: "Hydrogen Gas Evolution",
     description:
-      "Create a fast, visible gas-forming reaction that students can connect to reactants, products, and evidence.",
-    objective: "Help students recognise bubbling as evidence of a gas product in a reaction.",
+      "Create a fast, visible gas-forming reaction that clearly connects reactants, products, and evidence.",
+    objective: "Make bubbling easy to recognise as evidence of a gas product in a reaction.",
     expected: "Rapid bubbling appears as hydrogen gas forms in the test tube.",
     materials: ["Hydrochloric acid", "Zinc metal", "Test tube"],
     steps: [
@@ -225,13 +302,244 @@ const DEMO_PRESETS: DemoPreset[] = [
 ];
 
 const QUICK_REACTIONS = [
-  "Na + H₂O → violent explosion",
+  "2Na + 2H₂O → 2NaOH + H₂↑",
+  "HCl + NaOH → NaCl + H₂O + heat",
+  "H₂SO₄ + Na₂CO₃ → Na₂SO₄ + H₂O + CO₂↑",
   "CuSO₄ + Fe → copper displacement",
+  "CuSO₄ + 2NaOH → Cu(OH)₂↓ + Na₂SO₄",
   "NaOH + phenolphthalein → pink indicator",
-  "Vinegar + baking soda → carbon dioxide bubbles",
-  "AgNO₃ + KI → yellow precipitate",
-  "Zn + HCl → hydrogen gas",
+  "AgNO₃ + NaCl → AgCl↓ + NaNO₃",
+  "CH₃COOH + NaHCO₃ → CH₃COONa + H₂O + CO₂↑",
+  "AgNO₃ + KI → AgI↓ + KNO₃",
+  "Zn + 2HCl → ZnCl₂ + H₂↑",
 ];
+
+function getPhysicalStateLabel(state: ChemicalContent["state"]) {
+  if (state === "liquid") return "Liquid";
+  if (state === "solid") return "Solid";
+  return "Gas";
+}
+
+function getRealLabAppearance(chemical: ChemicalContent) {
+  if (chemical.id === "hcl") return "Usually seen as a clear acidic liquid in a reagent bottle.";
+  if (chemical.id === "h2so4") return "Usually appears as a clear to slightly oily liquid in the lab.";
+  if (chemical.id === "hno3") return "Usually appears as a clear to pale yellow liquid.";
+  if (chemical.id === "h3po4") return "Usually appears as a clear liquid solution.";
+  if (chemical.id === "vinegar") return "Usually appears as a clear weak acid solution.";
+  if (chemical.state === "liquid") return "This reagent should be seen as a liquid when selected and poured into a vessel.";
+  if (chemical.state === "solid") return "This reagent should appear as a solid sample before mixing.";
+  return "This reagent is represented as a gas in normal laboratory conditions.";
+}
+
+function WashBottle3D({
+  position,
+  accent = "#60a5fa",
+}: {
+  position: [number, number, number];
+  accent?: string;
+}) {
+  return (
+    <group position={position}>
+      <mesh castShadow receiveShadow>
+        <cylinderGeometry args={[0.12, 0.14, 0.34, 24]} />
+        <meshPhysicalMaterial
+          color="#eef8ff"
+          transparent
+          opacity={0.18}
+          transmission={0.85}
+          roughness={0.08}
+          thickness={0.8}
+        />
+      </mesh>
+      <mesh position={[0, 0.2, 0]}>
+        <cylinderGeometry args={[0.055, 0.06, 0.08, 18]} />
+        <meshStandardMaterial color={accent} roughness={0.35} metalness={0.15} />
+      </mesh>
+      <mesh position={[0.04, 0.28, 0]} rotation={[0, 0, -0.55]}>
+        <cylinderGeometry args={[0.012, 0.012, 0.22, 14]} />
+        <meshStandardMaterial color={accent} roughness={0.35} metalness={0.15} />
+      </mesh>
+      <mesh position={[0, 0.02, 0.122]}>
+        <planeGeometry args={[0.14, 0.09]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+    </group>
+  );
+}
+
+function RetortStand3D({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[0.46, 0.04, 0.3]} />
+        <meshStandardMaterial color="#2f3438" metalness={0.85} roughness={0.28} />
+      </mesh>
+      <mesh position={[-0.14, 0.46, 0]} castShadow>
+        <cylinderGeometry args={[0.018, 0.018, 0.92, 16]} />
+        <meshStandardMaterial color="#aeb7bf" metalness={0.95} roughness={0.18} />
+      </mesh>
+      <mesh position={[0.04, 0.62, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.014, 0.014, 0.34, 14]} />
+        <meshStandardMaterial color="#b8c2ca" metalness={0.92} roughness={0.2} />
+      </mesh>
+      <mesh position={[0.19, 0.44, 0]}>
+        <cylinderGeometry args={[0.026, 0.03, 0.62, 18]} />
+        <meshPhysicalMaterial
+          color="#f8fcff"
+          transparent
+          opacity={0.1}
+          transmission={0.95}
+          roughness={0.02}
+        />
+      </mesh>
+      <mesh position={[0.19, 0.31, 0]}>
+        <cylinderGeometry args={[0.02, 0.02, 0.32, 18]} />
+        <meshPhysicalMaterial color="#cceeff" transparent opacity={0.82} transmission={0.28} />
+      </mesh>
+      <mesh position={[0.19, 0.71, 0]}>
+        <cylinderGeometry args={[0.034, 0.034, 0.06, 18]} />
+        <meshStandardMaterial color="#1f2937" roughness={0.5} metalness={0.1} />
+      </mesh>
+    </group>
+  );
+}
+
+function DigitalBalance3D({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[0.5, 0.12, 0.36]} />
+        <meshStandardMaterial color="#d8dde2" metalness={0.28} roughness={0.42} />
+      </mesh>
+      <mesh position={[0, 0.09, 0]}>
+        <cylinderGeometry args={[0.14, 0.14, 0.02, 24]} />
+        <meshStandardMaterial color="#c3ccd4" metalness={0.55} roughness={0.25} />
+      </mesh>
+      <mesh position={[0, 0.1, 0]}>
+        <cylinderGeometry args={[0.1, 0.1, 0.015, 24]} />
+        <meshStandardMaterial color="#f8fafc" metalness={0.18} roughness={0.18} />
+      </mesh>
+      <mesh position={[0, 0.01, 0.155]}>
+        <boxGeometry args={[0.17, 0.05, 0.02]} />
+        <meshStandardMaterial color="#07111b" emissive="#0ea5e9" emissiveIntensity={0.22} />
+      </mesh>
+    </group>
+  );
+}
+
+function TestTubeRack3D({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.02, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.62, 0.05, 0.18]} />
+        <meshStandardMaterial color="#8b5e3c" roughness={0.8} />
+      </mesh>
+      <mesh position={[0, 0.22, 0]}>
+        <boxGeometry args={[0.62, 0.05, 0.18]} />
+        <meshStandardMaterial color="#8b5e3c" roughness={0.8} />
+      </mesh>
+      {[-0.24, -0.08, 0.08, 0.24].map((x, index) => (
+        <group key={x} position={[x, 0.25, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.04, 0.045, 0.34, 16]} />
+            <meshPhysicalMaterial
+              color="#f8fcff"
+              transparent
+              opacity={0.08}
+              transmission={0.98}
+              roughness={0.02}
+            />
+          </mesh>
+          <mesh position={[0, -0.06, 0]}>
+            <cylinderGeometry args={[0.034, 0.034, 0.18, 14]} />
+            <meshPhysicalMaterial
+              color={["#dbeafe", "#fde68a", "#fecdd3", "#dcfce7"][index]}
+              transparent
+              opacity={0.82}
+              transmission={0.25}
+            />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function WallStorage3D() {
+  return (
+    <>
+      <group position={[0, 1.2, -3.45]}>
+        {[-2.1, 0, 2.1].map((x) => (
+          <group key={x} position={[x, 0, 0]}>
+            <mesh castShadow receiveShadow>
+              <boxGeometry args={[1.75, 0.9, 0.42]} />
+              <meshStandardMaterial color="#d7dee5" metalness={0.25} roughness={0.55} />
+            </mesh>
+            <mesh position={[0, 0, 0.215]}>
+              <boxGeometry args={[1.55, 0.72, 0.03]} />
+              <meshPhysicalMaterial color="#dbeafe" transparent opacity={0.12} transmission={0.95} />
+            </mesh>
+          </group>
+        ))}
+      </group>
+
+      <group position={[4.15, -0.62, 0.9]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[1.85, 0.86, 1.1]} />
+          <meshStandardMaterial color="#cfd8df" metalness={0.28} roughness={0.5} />
+        </mesh>
+        <mesh position={[0, 0.47, 0]}>
+          <boxGeometry args={[1.95, 0.08, 1.18]} />
+          <meshStandardMaterial color="#d9dee3" metalness={0.55} roughness={0.22} />
+        </mesh>
+        <mesh position={[-0.24, 0.53, 0]}>
+          <cylinderGeometry args={[0.24, 0.24, 0.05, 24]} />
+          <meshStandardMaterial color="#a8b3bb" metalness={0.75} roughness={0.24} />
+        </mesh>
+        <mesh position={[0.28, 0.79, 0]}>
+          <cylinderGeometry args={[0.03, 0.03, 0.4, 16]} />
+          <meshStandardMaterial color="#93a0aa" metalness={0.84} roughness={0.2} />
+        </mesh>
+        <mesh position={[0.38, 0.9, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.02, 0.02, 0.26, 16]} />
+          <meshStandardMaterial color="#93a0aa" metalness={0.84} roughness={0.2} />
+        </mesh>
+      </group>
+
+      <group position={[-4.05, -0.35, -0.95]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[1.38, 2.05, 1.02]} />
+          <meshStandardMaterial color="#c9d1d8" metalness={0.4} roughness={0.48} />
+        </mesh>
+        <mesh position={[0, 0.04, 0.5]}>
+          <boxGeometry args={[1.14, 1.74, 0.03]} />
+          <meshPhysicalMaterial color="#e0f2fe" transparent opacity={0.15} transmission={0.95} />
+        </mesh>
+        <RealisticChemicalBottle3D
+          position={[-0.28, -0.52, 0.12]}
+          chemicalName="Hydrochloric Acid"
+          chemicalColor="#fff3a8"
+          hazardLevel="high"
+          fillLevel={0.74}
+        />
+        <RealisticChemicalBottle3D
+          position={[0.02, -0.52, 0.12]}
+          chemicalName="Nitric Acid"
+          chemicalColor="#fff0a0"
+          hazardLevel="extreme"
+          fillLevel={0.66}
+        />
+        <RealisticChemicalBottle3D
+          position={[0.32, -0.52, 0.12]}
+          chemicalName="Sulfuric Acid"
+          chemicalColor="#ffe08a"
+          hazardLevel="extreme"
+          fillLevel={0.71}
+        />
+      </group>
+    </>
+  );
+}
 
 function checkForReaction(contents: ChemicalContent[]): ReactionEffect | null {
   if (contents.length < 2) return null;
@@ -242,9 +550,14 @@ function checkForReaction(contents: ChemicalContent[]): ReactionEffect | null {
   const hasBase = contents.some((c) => c.pH > 10);
   const hasVinegar = contents.some((c) => c.id === "vinegar");
   const hasBakingSoda = contents.some((c) => c.id === "baking_soda");
+  const hasSodiumCarbonate = contents.some((c) => c.id === "sodium_carbonate");
   const hasPhenolphthalein = contents.some((c) => c.id === "phenolphthalein");
+  const hasMethylOrange = contents.some((c) => c.id === "methyl_orange");
+  const hasUniversalIndicator = contents.some((c) => c.id === "universal_indicator");
+  const hasBromothymolBlue = contents.some((c) => c.id === "bromothymol_blue");
   const hasSilverNitrate = contents.some((c) => c.id === "silver_nitrate");
   const hasPotassiumIodide = contents.some((c) => c.id === "potassium_iodide");
+  const hasSodiumChloride = contents.some((c) => c.id === "nacl");
   const hasCopperSulfate = contents.some((c) => c.id === "copper_sulfate");
   const hasIronNail = contents.some((c) => c.id === "iron_nail");
   const hasZincMetal = contents.some((c) => c.id === "zinc_metal");
@@ -252,12 +565,20 @@ function checkForReaction(contents: ChemicalContent[]): ReactionEffect | null {
   const hasHydrogenPeroxide = contents.some((c) => c.id === "hydrogen_peroxide");
   const hasPotassiumPermanganate = contents.some((c) => c.id === "potassium_permanganate");
   const hasHCl = contents.some((c) => c.id === "hcl");
+  const hasSulfuric = contents.some((c) => c.id === "h2so4");
+  const hasNitric = contents.some((c) => c.id === "hno3");
+  const hasPhosphoric = contents.some((c) => c.id === "h3po4");
+
+  const activeAcid = hasHCl || hasSulfuric || hasNitric || hasPhosphoric || hasVinegar;
 
   if (hasSodium && hasWater) {
     return {
       type: "explosion",
       intensity: 1,
       message: "💥 VIOLENT EXPLOSION! 2Na + 2H₂O → 2NaOH + H₂↑",
+      equation: "2Na + 2H₂O → 2NaOH + H₂↑",
+      visibleEvidence: "Rapid movement, strong fizzing, heat, and hydrogen gas release.",
+      realWorldNote: "This is dangerously violent in a real lab and should only be demonstrated under strict expert control.",
     };
   }
 
@@ -267,6 +588,21 @@ function checkForReaction(contents: ChemicalContent[]): ReactionEffect | null {
       intensity: 0.9,
       resultColor: "#b87333",
       message: "🔄 DISPLACEMENT! CuSO₄ + Fe → FeSO₄ + Cu↓",
+      equation: "Fe + CuSO₄ → FeSO₄ + Cu↓",
+      visibleEvidence: "The blue solution fades and a reddish-brown copper coating forms on the iron.",
+      realWorldNote: "In a normal lab, copper metal slowly deposits on the iron nail while the solution changes as iron(II) sulfate forms.",
+    };
+  }
+
+  if (hasCopperSulfate && hasZincMetal) {
+    return {
+      type: "precipitate",
+      intensity: 0.85,
+      resultColor: "#a8d8ff",
+      message: "🔄 DISPLACEMENT! Zinc displaces copper from copper sulfate solution.",
+      equation: "Zn + CuSO₄ → ZnSO₄ + Cu↓",
+      visibleEvidence: "The blue solution fades and a reddish copper deposit forms on the zinc surface.",
+      realWorldNote: "This is a normal single-displacement reaction used in real laboratories to compare metal reactivity.",
     };
   }
 
@@ -276,6 +612,45 @@ function checkForReaction(contents: ChemicalContent[]): ReactionEffect | null {
       intensity: 0.9,
       resultColor: "#c0c0c0",
       message: "🫧 GAS EVOLUTION! Zn + 2HCl → ZnCl₂ + H₂↑",
+      equation: "Zn + 2HCl → ZnCl₂ + H₂↑",
+      visibleEvidence: "Steady bubbling appears on the zinc surface as hydrogen gas is released.",
+      realWorldNote: "This is the normal school-lab metal-acid reaction used to show hydrogen gas formation.",
+    };
+  }
+
+  if (hasZincMetal && hasSulfuric) {
+    return {
+      type: "bubbles",
+      intensity: 0.92,
+      resultColor: "#dbeafe",
+      message: "🫧 Metal-acid reaction! Zinc reacts with sulfuric acid and releases hydrogen gas.",
+      equation: "Zn + H₂SO₄ → ZnSO₄ + H₂↑",
+      visibleEvidence: "Effervescence forms at the metal surface and the zinc gradually dissolves.",
+      realWorldNote: "In a real lab, dilute sulfuric acid with zinc normally gives hydrogen gas and a zinc sulfate solution.",
+    };
+  }
+
+  if (hasZincMetal && hasPhosphoric) {
+    return {
+      type: "bubbles",
+      intensity: 0.7,
+      resultColor: "#e8f3ff",
+      message: "🫧 Zinc reacts slowly with phosphoric acid and releases gas.",
+      equation: "Zn + 2H⁺ → Zn²⁺ + H₂↑",
+      visibleEvidence: "Gentle bubbling appears and the metal surface slowly changes.",
+      realWorldNote: "In a real lab this is usually slower than hydrochloric acid, but hydrogen gas can still be observed.",
+    };
+  }
+
+  if (hasZincMetal && hasNitric) {
+    return {
+      type: "gas",
+      intensity: 0.95,
+      resultColor: "#f59e0b",
+      message: "🟤 Nitric acid reaction! Zinc can produce brown nitrogen dioxide fumes instead of hydrogen.",
+      equation: "Zn + 4HNO₃ → Zn(NO₃)₂ + 2NO₂↑ + 2H₂O",
+      visibleEvidence: "Brown fumes may appear and the metal dissolves.",
+      realWorldNote: "This is closer to real laboratory chemistry than showing hydrogen, because nitric acid is an oxidizing acid.",
     };
   }
 
@@ -285,6 +660,21 @@ function checkForReaction(contents: ChemicalContent[]): ReactionEffect | null {
       intensity: 1,
       resultColor: "#ffffff",
       message: "🫧 VIGOROUS REACTION! Mg + 2HCl → MgCl₂ + H₂↑",
+      equation: "Mg + 2HCl → MgCl₂ + H₂↑",
+      visibleEvidence: "Rapid bubbling occurs and the magnesium ribbon quickly dissolves.",
+      realWorldNote: "This is a standard real-lab reaction that clearly shows hydrogen production from a reactive metal and acid.",
+    };
+  }
+
+  if (hasMagnesium && hasSulfuric) {
+    return {
+      type: "bubbles",
+      intensity: 1,
+      resultColor: "#eef7ff",
+      message: "🫧 Magnesium reacts vigorously with sulfuric acid and releases hydrogen gas.",
+      equation: "Mg + H₂SO₄ → MgSO₄ + H₂↑",
+      visibleEvidence: "Rapid effervescence appears and the metal ribbon disappears quickly.",
+      realWorldNote: "This is a standard real-lab metal-acid reaction with strong visible gas evolution.",
     };
   }
 
@@ -292,7 +682,22 @@ function checkForReaction(contents: ChemicalContent[]): ReactionEffect | null {
     return {
       type: "bubbles",
       intensity: 0.3,
-      message: "🫧 Slow reaction: Mg + 2H₂O → Mg(OH)₂ + H₂↑",
+      message: "🫧 Very slow reaction: magnesium reacts only weakly with cold water.",
+      equation: "Mg + 2H₂O → Mg(OH)₂ + H₂↑",
+      visibleEvidence: "Only slight bubbling may be seen, and little change happens without heating.",
+      realWorldNote: "In a normal lab this reaction is very slow in cold water and is more noticeable with steam or heating.",
+    };
+  }
+
+  if (hasHydrogenPeroxide && hasBase) {
+    return {
+      type: "gas",
+      intensity: 0.7,
+      resultColor: "#f6fbff",
+      message: "🫧 Oxygen release! Hydrogen peroxide decomposes faster in alkaline conditions.",
+      equation: "2H₂O₂ → 2H₂O + O₂↑",
+      visibleEvidence: "Fine bubbles rise through the liquid and the vessel may warm slightly.",
+      realWorldNote: "In real labs, hydrogen peroxide breaks down faster in the presence of catalysts or reactive alkaline mixtures.",
     };
   }
 
@@ -302,6 +707,80 @@ function checkForReaction(contents: ChemicalContent[]): ReactionEffect | null {
       intensity: 1,
       resultColor: "#8b4513",
       message: "🧪 OXIDATION! Oxygen gas and brown manganese dioxide appear.",
+      equation: "2KMnO₄ + 3H₂O₂ → 2MnO₂ + 3O₂↑ + 2KOH + 2H₂O",
+      visibleEvidence: "Bubbling oxygen gas forms while the purple colour fades and a brown solid appears.",
+      realWorldNote: "In real wet-chemistry work, the exact products depend on conditions, but bubbling and colour change are normal signs of redox activity.",
+    };
+  }
+
+  if (hasVinegar && hasBakingSoda) {
+    return {
+      type: "bubbles",
+      intensity: 1,
+      message: "🫧 Vigorous bubbling! NaHCO₃ + CH₃COOH → CO₂↑ + H₂O + CH₃COONa",
+      equation: "CH₃COOH + NaHCO₃ → CH₃COONa + H₂O + CO₂↑",
+      visibleEvidence: "Strong fizzing and foaming appear as carbon dioxide escapes.",
+      realWorldNote: "This is the normal bench-top reaction seen when vinegar and baking soda are mixed.",
+    };
+  }
+
+  if (activeAcid && hasSodiumCarbonate) {
+    return {
+      type: "bubbles",
+      intensity: 1,
+      resultColor: "#fff7db",
+      message: "🫧 Effervescence! Acid reacts with carbonate to release carbon dioxide gas.",
+      equation: "2H⁺ + CO₃²⁻ → CO₂↑ + H₂O",
+      visibleEvidence: "Bubbles rise through the liquid as carbon dioxide is produced.",
+      realWorldNote: "In a normal lab, acid-carbonate reactions are recognised by immediate effervescence and gas release.",
+    };
+  }
+
+  if (activeAcid && hasBakingSoda) {
+    return {
+      type: "bubbles",
+      intensity: 0.95,
+      resultColor: "#fff7db",
+      message: "🫧 Effervescence! Acid reacts with bicarbonate to release carbon dioxide gas.",
+      equation: "H⁺ + HCO₃⁻ → CO₂↑ + H₂O",
+      visibleEvidence: "Fizzing is seen as carbon dioxide leaves the solution.",
+      realWorldNote: "This is the normal pattern seen in school labs when acids are added to bicarbonates.",
+    };
+  }
+
+  if ((hasHCl && hasNaOH(contents)) || (hasSulfuric && hasNaOH(contents)) || (hasPhosphoric && hasNaOH(contents))) {
+    return {
+      type: "heat",
+      intensity: 0.85,
+      resultColor: "#eef8ff",
+      message: "🔥 Neutralization observed! The acid and base react to form water and a salt.",
+      equation: "Acid + NaOH → Salt + H₂O + heat",
+      visibleEvidence: "The liquid stays mostly clear but warms noticeably as the pH moves toward neutral.",
+      realWorldNote: "This is the normal real-world neutralization pattern seen in school and analytical laboratories.",
+    };
+  }
+
+  if (hasCopperSulfate && hasBase) {
+    return {
+      type: "precipitate",
+      intensity: 0.85,
+      resultColor: "#87ceeb",
+      message: "⬇️ Blue precipitate! Copper(II) hydroxide forms as a pale blue solid.",
+      equation: "CuSO₄ + 2NaOH → Cu(OH)₂↓ + Na₂SO₄",
+      visibleEvidence: "A pale blue solid appears and settles in the vessel.",
+      realWorldNote: "In a normal lab this reaction gives one of the easiest precipitates to recognise by colour.",
+    };
+  }
+
+  if (hasSilverNitrate && hasSodiumChloride) {
+    return {
+      type: "precipitate",
+      intensity: 0.85,
+      resultColor: "#f8fafc",
+      message: "⬇️ White precipitate! Silver chloride appears as a curdy white solid.",
+      equation: "AgNO₃ + NaCl → AgCl↓ + NaNO₃",
+      visibleEvidence: "A curdy white solid forms immediately on mixing.",
+      realWorldNote: "This is a standard real-lab test for chloride ions.",
     };
   }
 
@@ -311,14 +790,9 @@ function checkForReaction(contents: ChemicalContent[]): ReactionEffect | null {
       intensity: 0.8,
       resultColor: "#87ceeb",
       message: "🔥 Exothermic neutralization! H⁺ + OH⁻ → H₂O + heat",
-    };
-  }
-
-  if (hasVinegar && hasBakingSoda) {
-    return {
-      type: "bubbles",
-      intensity: 1,
-      message: "🫧 Vigorous bubbling! NaHCO₃ + CH₃COOH → CO₂↑ + H₂O + CH₃COONa",
+      equation: "Acid + Base → Salt + H₂O",
+      visibleEvidence: "The solution warms and indicators may change colour as the pH moves toward neutral.",
+      realWorldNote: "In a normal laboratory, neutralization usually gives a salt solution, water, and a small rise in temperature.",
     };
   }
 
@@ -328,6 +802,102 @@ function checkForReaction(contents: ChemicalContent[]): ReactionEffect | null {
       intensity: 0.8,
       resultColor: "#ff69b4",
       message: "🩷 Indicator colour change! Phenolphthalein turns pink in basic solution.",
+      equation: "Indicator response, not a new product-forming reaction",
+      visibleEvidence: "The liquid turns pink as soon as the solution is alkaline enough.",
+      realWorldNote: "This is the normal way phenolphthalein behaves in school and research labs.",
+    };
+  }
+
+  if (hasMethylOrange) {
+    if (hasAcid) {
+      return {
+        type: "colorChange",
+        intensity: 0.6,
+        resultColor: "#ff4d4d",
+        message: "🎨 Indicator change! Methyl orange turns red in acidic solution.",
+        equation: "Indicator response across pH range",
+        visibleEvidence: "The solution becomes red in acidic conditions.",
+        realWorldNote: "This matches the normal real-lab colour transition for methyl orange in acid.",
+      };
+    }
+    if (hasBase) {
+      return {
+        type: "colorChange",
+        intensity: 0.6,
+        resultColor: "#ffd54f",
+        message: "🎨 Indicator change! Methyl orange turns yellow in neutral to basic solution.",
+        equation: "Indicator response across pH range",
+        visibleEvidence: "The solution becomes yellow once the mixture is neutral or basic.",
+        realWorldNote: "This matches normal lab behaviour for methyl orange outside acidic conditions.",
+      };
+    }
+  }
+
+  if (hasBromothymolBlue) {
+    if (hasAcid) {
+      return {
+        type: "colorChange",
+        intensity: 0.6,
+        resultColor: "#facc15",
+        message: "🎨 Indicator change! Bromothymol blue turns yellow in acidic solution.",
+        equation: "Indicator response across pH range",
+        visibleEvidence: "The liquid shifts to yellow in acidic conditions.",
+        realWorldNote: "This is the normal colour seen for bromothymol blue in acidic solution.",
+      };
+    }
+    if (hasBase) {
+      return {
+        type: "colorChange",
+        intensity: 0.6,
+        resultColor: "#3b82f6",
+        message: "🎨 Indicator change! Bromothymol blue turns blue in basic solution.",
+        equation: "Indicator response across pH range",
+        visibleEvidence: "The liquid turns blue when the mixture is basic.",
+        realWorldNote: "This is the normal colour seen for bromothymol blue in alkaline solution.",
+      };
+    }
+    return {
+      type: "colorChange",
+      intensity: 0.45,
+      resultColor: "#22c55e",
+      message: "🎨 Indicator change! Bromothymol blue appears green near neutral pH.",
+      equation: "Indicator response across pH range",
+      visibleEvidence: "The liquid appears green when the pH is close to neutral.",
+      realWorldNote: "This matches the usual real-lab appearance near pH 7.",
+    };
+  }
+
+  if (hasUniversalIndicator) {
+    if (hasAcid) {
+      return {
+        type: "colorChange",
+        intensity: 0.55,
+        resultColor: hasSulfuric || hasNitric || hasHCl ? "#ef4444" : "#f97316",
+        message: "🎨 Universal indicator shows an acidic colour range from orange to red.",
+        equation: "Indicator response across pH range",
+        visibleEvidence: "The liquid changes into acidic colours, usually orange to red.",
+        realWorldNote: "This follows the usual universal-indicator chart used in normal laboratories.",
+      };
+    }
+    if (hasBase) {
+      return {
+        type: "colorChange",
+        intensity: 0.55,
+        resultColor: "#4f46e5",
+        message: "🎨 Universal indicator shows a basic colour range from blue to violet.",
+        equation: "Indicator response across pH range",
+        visibleEvidence: "The liquid changes to blue or violet as the pH becomes alkaline.",
+        realWorldNote: "This follows the normal universal-indicator colour scale.",
+      };
+    }
+    return {
+      type: "colorChange",
+      intensity: 0.45,
+      resultColor: "#22c55e",
+      message: "🎨 Universal indicator appears green around neutral pH.",
+      equation: "Indicator response across pH range",
+      visibleEvidence: "The liquid appears green when the solution is near neutral.",
+      realWorldNote: "Green is the normal real-lab indicator colour around pH 7.",
     };
   }
 
@@ -337,10 +907,17 @@ function checkForReaction(contents: ChemicalContent[]): ReactionEffect | null {
       intensity: 0.9,
       resultColor: "#ffd700",
       message: "⬇️ Yellow precipitate! AgNO₃ + KI → AgI↓ + KNO₃",
+      equation: "AgNO₃ + KI → AgI↓ + KNO₃",
+      visibleEvidence: "A bright yellow solid appears and settles out of the liquid.",
+      realWorldNote: "This is the normal silver iodide precipitation seen in qualitative-analysis work.",
     };
   }
 
   return null;
+}
+
+function hasNaOH(contents: ChemicalContent[]) {
+  return contents.some((c) => c.id === "naoh");
 }
 
 function getContainerVolume(container: LabContainer) {
@@ -394,6 +971,7 @@ export function InteractiveChemistryLab({
   onAskAI,
 }: InteractiveChemistryLabProps = {}) {
   const [containers, setContainers] = useState<LabContainer[]>(INITIAL_CONTAINERS);
+  const [benchEquipment, setBenchEquipment] = useState<BenchEquipmentItem[]>(INITIAL_BENCH_EQUIPMENT);
   const [selectedContainerId, setSelectedContainerId] = useState<string>("beaker-1");
   const [selectedChemical, setSelectedChemical] = useState<ChemicalContent | null>(null);
   const [draggingChemical, setDraggingChemical] = useState<ChemicalContent | null>(null);
@@ -426,6 +1004,9 @@ export function InteractiveChemistryLab({
   const activeDemoPreset = DEMO_PRESETS.find((demo) => demo.id === activeDemo) ?? DEMO_PRESETS[0];
   const selectedChemicalMeta = selectedChemical ? SHELF_CHEMICALS[selectedChemical.id] : null;
   const averagePH = selectedContainer ? getAveragePH(selectedContainer.contents) : null;
+  const activeSelectedReaction = reactionEffects.find(
+    (effect) => effect.containerId === selectedContainerId,
+  );
   const targetContainer = containers.find(
     (container) => container.id === activeDemoPreset.targetContainerId,
   );
@@ -487,28 +1068,21 @@ export function InteractiveChemistryLab({
   const dragPlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
   const dragIntersectionRef = useRef(new THREE.Vector3());
   const dragOffsetRef = useRef(new THREE.Vector3());
-  const draggingContainerIdRef = useRef<string | null>(null);
+  const draggingObjectRef = useRef<{ kind: "container" | "equipment"; id: string } | null>(null);
   const didDragMoveRef = useRef(false);
   const suppressNextSelectRef = useRef(false);
 
-  const beginDragContainer = useCallback(
-    (containerId: string, e: ThreeEvent<PointerEvent>) => {
-      // Shift + drag to move equipment on the bench
-      if (!e.shiftKey) return;
-
-      const container = containers.find((item) => item.id === containerId);
-      if (!container) return;
-
-      draggingContainerIdRef.current = containerId;
+  const beginDragObject = useCallback(
+    (kind: "container" | "equipment", objectId: string, position: [number, number, number], e: ThreeEvent<PointerEvent>) => {
+      draggingObjectRef.current = { kind, id: objectId };
       didDragMoveRef.current = false;
 
-      // Plane at the same Y height as the container
-      dragPlaneRef.current.set(new THREE.Vector3(0, 1, 0), -container.position[1]);
+      dragPlaneRef.current.set(new THREE.Vector3(0, 1, 0), -position[1]);
 
       const intersection = dragIntersectionRef.current;
       if (e.ray.intersectPlane(dragPlaneRef.current, intersection)) {
         dragOffsetRef.current.copy(intersection).sub(
-          new THREE.Vector3(container.position[0], container.position[1], container.position[2]),
+          new THREE.Vector3(position[0], position[1], position[2]),
         );
       } else {
         dragOffsetRef.current.set(0, 0, 0);
@@ -517,12 +1091,30 @@ export function InteractiveChemistryLab({
       (e.target as unknown as HTMLElement)?.setPointerCapture?.(e.pointerId);
       document.body.style.cursor = "grabbing";
     },
-    [containers],
+    [],
+  );
+
+  const beginDragContainer = useCallback(
+    (containerId: string, e: ThreeEvent<PointerEvent>) => {
+      const container = containers.find((item) => item.id === containerId);
+      if (!container) return;
+      beginDragObject("container", containerId, container.position, e);
+    },
+    [beginDragObject, containers],
+  );
+
+  const beginDragEquipment = useCallback(
+    (equipmentId: string, e: ThreeEvent<PointerEvent>) => {
+      const equipment = benchEquipment.find((item) => item.id === equipmentId);
+      if (!equipment) return;
+      beginDragObject("equipment", equipmentId, equipment.position, e);
+    },
+    [beginDragObject, benchEquipment],
   );
 
   const updateDragContainer = useCallback((e: ThreeEvent<PointerEvent>) => {
-    const containerId = draggingContainerIdRef.current;
-    if (!containerId) return;
+    const draggingObject = draggingObjectRef.current;
+    if (!draggingObject) return;
 
     const intersection = dragIntersectionRef.current;
     if (!e.ray.intersectPlane(dragPlaneRef.current, intersection)) return;
@@ -535,16 +1127,28 @@ export function InteractiveChemistryLab({
     const clampedZ = THREE.MathUtils.clamp(next.z, -1.35, 1.35);
 
     setContainers((current) =>
-      current.map((container) =>
-        container.id === containerId
-          ? { ...container, position: [clampedX, container.position[1], clampedZ] }
-          : container,
-      ),
+      draggingObject.kind === "container"
+        ? current.map((container) =>
+            container.id === draggingObject.id
+              ? { ...container, position: [clampedX, container.position[1], clampedZ] }
+              : container,
+          )
+        : current,
     );
+
+    if (draggingObject.kind === "equipment") {
+      setBenchEquipment((current) =>
+        current.map((equipment) =>
+          equipment.id === draggingObject.id
+            ? { ...equipment, position: [clampedX, equipment.position[1], clampedZ] }
+            : equipment,
+        ),
+      );
+    }
   }, []);
 
   const endDragContainer = useCallback((e: ThreeEvent<PointerEvent>) => {
-    if (!draggingContainerIdRef.current) return;
+    if (!draggingObjectRef.current) return;
 
     (e.target as unknown as HTMLElement)?.releasePointerCapture?.(e.pointerId);
     document.body.style.cursor = "auto";
@@ -554,7 +1158,7 @@ export function InteractiveChemistryLab({
       suppressNextSelectRef.current = true;
     }
 
-    draggingContainerIdRef.current = null;
+    draggingObjectRef.current = null;
     didDragMoveRef.current = false;
   }, []);
 
@@ -609,6 +1213,7 @@ export function InteractiveChemistryLab({
 
   const resetLab = useCallback((message?: string) => {
     setContainers(INITIAL_CONTAINERS);
+    setBenchEquipment(INITIAL_BENCH_EQUIPMENT);
     setReactionEffects([]);
     setSelectedChemical(null);
     setDraggingChemical(null);
@@ -689,6 +1294,21 @@ export function InteractiveChemistryLab({
     }
     setSelectedContainerId(containerId);
   }, []);
+
+  const toggleEquipmentVisibility = useCallback((equipmentId: string) => {
+    setBenchEquipment((current) =>
+      current.map((item) =>
+        item.id === equipmentId ? { ...item, visible: !item.visible } : item,
+      ),
+    );
+  }, []);
+
+  const resetBenchLayout = useCallback(() => {
+    setContainers(INITIAL_CONTAINERS);
+    setBenchEquipment(INITIAL_BENCH_EQUIPMENT);
+    registerObservation("Bench layout restored to a standard laboratory arrangement.");
+    toast.success("Bench layout restored.");
+  }, [registerObservation]);
 
   const addChemicalToContainer = useCallback(() => {
     if (!selectedChemical || !selectedContainerId) {
@@ -905,22 +1525,22 @@ export function InteractiveChemistryLab({
   ]);
 
   return (
-    <div className="flex h-full flex-col bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_transparent_30%),linear-gradient(180deg,#020617_0%,#0f172a_45%,#020617_100%)]">
-      <div className="border-b border-slate-800 bg-slate-950/70 px-4 py-3 backdrop-blur">
+    <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,#f8fbfd_0%,#eef4f7_100%)]">
+      <div className="border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-gradient-to-br from-cyan-500 to-indigo-600 p-2 shadow-lg shadow-cyan-500/30">
-              <FlaskConical className="h-6 w-6 text-white" />
+            <div className="rounded-2xl bg-sky-100 p-2 text-sky-700 shadow-sm">
+              <FlaskConical className="h-6 w-6" />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg font-semibold text-slate-50">Chemistry Virtual Laboratory</h1>
-                <Badge variant="outline" className="border-cyan-400/40 text-cyan-200">
-                  Flagship demo
+                <h1 className="text-lg font-semibold text-slate-900">Chemistry Laboratory Bench</h1>
+                <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-700">
+                  Real-world setup
                 </Badge>
               </div>
-              <p className="text-xs text-slate-400">
-                Realistic bench work, guided missions, molecular reasoning, and AI-powered science support
+              <p className="text-xs text-slate-600">
+                Practical bench work, guided procedures, molecular reasoning, and multilingual science support
               </p>
             </div>
           </div>
@@ -930,7 +1550,7 @@ export function InteractiveChemistryLab({
               variant="ghost"
               size="sm"
               onClick={() => setShowNotebook((value) => !value)}
-              className={showNotebook ? "text-amber-300" : "text-slate-400"}
+              className={showNotebook ? "text-amber-700" : "text-slate-600"}
             >
               <BookOpen className="mr-2 h-4 w-4" />
               Notebook
@@ -939,7 +1559,7 @@ export function InteractiveChemistryLab({
               variant="ghost"
               size="sm"
               onClick={() => setSoundEnabled((value) => !value)}
-              className="text-slate-400 hover:text-white"
+              className="text-slate-600 hover:text-slate-900"
             >
               {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
@@ -947,43 +1567,43 @@ export function InteractiveChemistryLab({
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="w-[340px] space-y-4 overflow-y-auto border-r border-slate-800 bg-slate-950/60 p-4">
-          <Card className="border-cyan-500/20 bg-slate-900/70">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto xl:flex-row xl:overflow-hidden">
+        <div className="order-2 w-full shrink-0 space-y-4 border-b border-slate-200 bg-white/70 p-4 xl:order-1 xl:w-[340px] xl:overflow-y-auto xl:border-b-0 xl:border-r">
+          <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm text-cyan-100">
-                <Target className="h-4 w-4 text-cyan-300" />
+              <CardTitle className="flex items-center gap-2 text-sm text-slate-900">
+                <Target className="h-4 w-4 text-sky-600" />
                 Mission briefing
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
-                <p className="text-sm font-semibold text-cyan-100">{activeDemoPreset.title}</p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-400">
+              <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                <p className="text-sm font-semibold text-slate-900">{activeDemoPreset.title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-600">
                   {activeDemoPreset.description}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-400">
+                <div className="flex items-center justify-between text-xs text-slate-500">
                   <span>Mission progress</span>
                   <span>{missionProgress}%</span>
                 </div>
-                <Progress value={missionProgress} className="h-2 bg-slate-800" />
+                <Progress value={missionProgress} className="h-2 bg-slate-200" />
               </div>
 
               <div className="space-y-2">
                 {missionChecklist.map((step) => (
                   <div
                     key={step.label}
-                    className="flex items-start gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2"
+                    className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2"
                   >
                     {step.complete ? (
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400" />
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
                     ) : (
                       <ChevronRight className="mt-0.5 h-4 w-4 text-slate-500" />
                     )}
-                    <span className="text-xs text-slate-300">{step.label}</span>
+                    <span className="text-xs text-slate-700">{step.label}</span>
                   </div>
                 ))}
               </div>
@@ -995,8 +1615,8 @@ export function InteractiveChemistryLab({
                     onClick={() => runDemoPreset(preset)}
                     className={`rounded-xl border px-2 py-2 text-left transition ${
                       activeDemo === preset.id
-                        ? "border-cyan-400 bg-cyan-500/15 text-cyan-100"
-                        : "border-slate-800 bg-slate-900/70 text-slate-300 hover:border-cyan-500/40"
+                        ? "border-sky-300 bg-sky-50 text-slate-900"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-sky-300"
                     }`}
                   >
                     <div className="text-xs font-semibold">{preset.title}</div>
@@ -1008,7 +1628,7 @@ export function InteractiveChemistryLab({
                 <div className="grid grid-cols-1 gap-2">
                   <Button
                     variant="outline"
-                    className="border-cyan-500/40 text-cyan-100 hover:bg-cyan-500/10"
+                    className="border-sky-300 text-slate-700 hover:bg-sky-50"
                     onClick={() =>
                       onAskAI(
                         `Guide me through the ${activeDemoPreset.title} experiment using the current bench state. Tell me what I should do next and what evidence I should observe.`,
@@ -1020,7 +1640,7 @@ export function InteractiveChemistryLab({
                   </Button>
                   <Button
                     variant="outline"
-                    className="border-violet-500/40 text-violet-100 hover:bg-violet-500/10"
+                    className="border-violet-300 text-slate-700 hover:bg-violet-50"
                     onClick={() =>
                       onAskAI(
                         `Explain what is happening in ${selectedContainer?.label ?? "the selected vessel"} based on its contents, pH, and temperature.`,
@@ -1033,24 +1653,24 @@ export function InteractiveChemistryLab({
                 </div>
               )}
 
-              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">What students should notice</p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-300">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">What to watch for</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-700">
                   {activeDemoPreset.expected}
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-slate-800 bg-slate-900/70">
+          <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm text-slate-100">
-                <Droplets className="h-4 w-4 text-cyan-300" />
+              <CardTitle className="flex items-center gap-2 text-sm text-slate-900">
+                <Droplets className="h-4 w-4 text-sky-600" />
                 Reagent control
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 {selectedChemical ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
@@ -1059,25 +1679,33 @@ export function InteractiveChemistryLab({
                         style={{ backgroundColor: selectedChemical.color }}
                       />
                       <div>
-                        <p className="text-sm font-semibold text-slate-100">{selectedChemical.name}</p>
-                        <p className="text-xs text-slate-400">
-                          {selectedChemicalMeta?.formula ?? "Reagent"} · pH {selectedChemical.pH}
+                        <p className="text-sm font-semibold text-slate-900">{selectedChemical.name}</p>
+                        <p className="text-xs text-slate-600">
+                          {selectedChemicalMeta?.formula ?? "Reagent"} · pH {selectedChemical.pH} · {getPhysicalStateLabel(selectedChemical.state)}
                         </p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="border-slate-700 text-slate-300">
-                      {selectedChemicalMeta?.hazardLevel ?? "safe"} handling
-                    </Badge>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className="border-slate-300 text-slate-600">
+                        {selectedChemicalMeta?.hazardLevel ?? "safe"} handling
+                      </Badge>
+                      <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-700">
+                        {getPhysicalStateLabel(selectedChemical.state)}
+                      </Badge>
+                    </div>
+                    <p className="text-xs leading-relaxed text-slate-600">
+                      {getRealLabAppearance(selectedChemical)}
+                    </p>
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400">
-                    Select a bottle from the shelf to inspect its pH, formula, and hazard level.
+                  <p className="text-xs text-slate-600">
+                    Select a bottle from the shelf to inspect its pH, formula, physical state, and hazard level.
                   </p>
                 )}
               </div>
 
               <div>
-                <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+                <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
                   <span>Measured pour amount</span>
                   <span>{pourAmount}mL</span>
                 </div>
@@ -1091,9 +1719,9 @@ export function InteractiveChemistryLab({
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs text-slate-400">Target vessel</label>
+                <label className="text-xs text-slate-500">Target vessel</label>
                 <Select value={selectedContainerId} onValueChange={setSelectedContainerId}>
-                  <SelectTrigger className="border-slate-700 bg-slate-950 text-slate-100">
+                  <SelectTrigger className="border-slate-300 bg-white text-slate-900">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1110,7 +1738,7 @@ export function InteractiveChemistryLab({
                 <Button
                   onClick={addChemicalToContainer}
                   disabled={!selectedChemical}
-                  className="bg-gradient-to-r from-cyan-500 to-indigo-600 text-white"
+                  className="bg-sky-600 text-white hover:bg-sky-700"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add reagent to vessel
@@ -1121,7 +1749,7 @@ export function InteractiveChemistryLab({
                     <Button
                       onClick={() => toggleHeating(selectedContainer.id)}
                       variant={selectedContainer.isHeating ? "destructive" : "outline"}
-                      className="border-slate-700"
+                      className="border-slate-300 text-slate-700"
                     >
                       <Flame className="mr-2 h-4 w-4" />
                       {selectedContainer.isHeating ? "Stop heating" : "Start heating"}
@@ -1129,7 +1757,7 @@ export function InteractiveChemistryLab({
                     <Button
                       onClick={() => clearContainer(selectedContainer.id)}
                       variant="outline"
-                      className="border-slate-700 text-slate-300"
+                      className="border-slate-300 text-slate-700"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Empty vessel
@@ -1140,18 +1768,18 @@ export function InteractiveChemistryLab({
             </CardContent>
           </Card>
 
-          <Card className="border-slate-800 bg-slate-900/70">
+          <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm text-slate-100">
-                <ArrowRightLeft className="h-4 w-4 text-emerald-300" />
+              <CardTitle className="flex items-center gap-2 text-sm text-slate-900">
+                <ArrowRightLeft className="h-4 w-4 text-emerald-600" />
                 Natural liquid transfer
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs text-slate-400">Source vessel</label>
+                <label className="text-xs text-slate-500">Source vessel</label>
                 <Select value={transferSourceId} onValueChange={setTransferSourceId}>
-                  <SelectTrigger className="border-slate-700 bg-slate-950 text-slate-100">
+                  <SelectTrigger className="border-slate-300 bg-white text-slate-900">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1165,7 +1793,7 @@ export function InteractiveChemistryLab({
               </div>
 
               <div>
-                <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+                <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
                   <span>Transfer amount</span>
                   <span>{transferAmount}mL</span>
                 </div>
@@ -1181,98 +1809,143 @@ export function InteractiveChemistryLab({
               <Button
                 onClick={transferBetweenContainers}
                 variant="outline"
-                className="w-full border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10"
+                className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50"
               >
                 <Move3D className="mr-2 h-4 w-4" />
                 Transfer into selected vessel
               </Button>
+              <p className="text-xs leading-relaxed text-slate-500">
+                Drag any visible vessel or bench tool to place it anywhere on the worktable.
+              </p>
             </CardContent>
           </Card>
 
-          <Card className="border-slate-800 bg-slate-900/70">
+          <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm text-slate-100">
-                <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                Learning objective
+              <CardTitle className="flex items-center gap-2 text-sm text-slate-900">
+                <Move3D className="h-4 w-4 text-violet-600" />
+                Bench equipment
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-xs leading-relaxed text-slate-300">
+            <CardContent className="space-y-3">
+              <p className="text-xs leading-relaxed text-slate-600">
+                Choose the equipment you want to keep on the bench, then reposition it to match a normal laboratory setup.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {benchEquipment.map((equipment) => (
+                  <button
+                    key={equipment.id}
+                    onClick={() => toggleEquipmentVisibility(equipment.id)}
+                    className={`rounded-xl border px-3 py-2 text-left text-xs transition ${
+                      equipment.visible
+                        ? "border-sky-300 bg-sky-50 text-slate-900"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="font-semibold">{equipment.label}</div>
+                    <div className="mt-1 text-[11px]">
+                      {equipment.visible ? "Visible on bench" : "Hidden from bench"}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <Button
+                onClick={resetBenchLayout}
+                variant="outline"
+                className="w-full border-violet-300 text-violet-700 hover:bg-violet-50"
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Restore standard layout
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border border-slate-200 bg-white shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm text-slate-900">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                Experiment objective
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs leading-relaxed text-slate-700">
               <p>{activeDemoPreset.objective}</p>
               <div>
                 <p className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">Materials</p>
                 <div className="flex flex-wrap gap-1.5">
                   {activeDemoPreset.materials.map((item) => (
-                    <Badge key={item} variant="outline" className="border-slate-700 text-slate-300">
+                    <Badge key={item} variant="outline" className="border-slate-300 text-slate-600">
                       {item}
                     </Badge>
                   ))}
                 </div>
               </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Scientific explanation</p>
-                <p className="mt-1 text-slate-300">{activeDemoPreset.explanation}</p>
+                <p className="mt-1 text-slate-700">{activeDemoPreset.explanation}</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="relative flex-1">
+        <div className="order-1 relative h-[520px] min-h-[360px] min-w-0 shrink-0 xl:order-2 xl:h-auto xl:min-h-0 xl:flex-1">
           <Canvas
             camera={{ position: [0, 2.8, 6.5], fov: 46 }}
             shadows
             gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
           >
-            <color attach="background" args={["#020617"]} />
-            <Environment preset="warehouse" />
-            <ambientLight intensity={0.45} />
+            <color attach="background" args={["#eef4f7"]} />
+            <Environment preset="studio" />
+            <ambientLight intensity={0.78} />
             <directionalLight
               position={[6, 9, 4]}
-              intensity={1.65}
+              intensity={1.9}
               castShadow
               shadow-mapSize={[2048, 2048]}
             />
-            <pointLight position={[-5, 2.6, 3]} intensity={0.8} color="#38bdf8" />
-            <pointLight position={[4, 2.5, -3]} intensity={0.6} color="#a855f7" />
+            <pointLight position={[-5, 2.6, 3]} intensity={0.3} color="#ffffff" />
+            <pointLight position={[4, 2.5, -3]} intensity={0.25} color="#fffaf0" />
 
             <group position={[0, 0.2, -3.2]}>
               <mesh position={[0, 1.6, 0]}>
                 <boxGeometry args={[11, 3.8, 0.25]} />
-                <meshStandardMaterial color="#0f172a" metalness={0.2} roughness={0.85} />
+                <meshStandardMaterial color="#f5f7f8" metalness={0.15} roughness={0.88} />
               </mesh>
               <mesh position={[-2.6, 1.8, 0.13]}>
                 <boxGeometry args={[2.4, 1.5, 0.04]} />
-                <meshStandardMaterial color="#38bdf8" emissive="#0ea5e9" emissiveIntensity={0.15} />
+                <meshStandardMaterial color="#ddeffd" emissive="#dbeafe" emissiveIntensity={0.04} />
               </mesh>
               <mesh position={[2.6, 1.8, 0.13]}>
                 <boxGeometry args={[2.4, 1.5, 0.04]} />
-                <meshStandardMaterial color="#1e3a8a" emissive="#22d3ee" emissiveIntensity={0.12} />
+                <meshStandardMaterial color="#e6edf2" emissive="#ffffff" emissiveIntensity={0.02} />
               </mesh>
             </group>
+
+            <WallStorage3D />
 
             <group position={[-5.4, 0.5, 0]}>
               <mesh position={[0, 1.2, 0]} rotation={[0, Math.PI / 2, 0]}>
                 <boxGeometry args={[6.4, 3.2, 0.2]} />
-                <meshStandardMaterial color="#111827" roughness={0.9} />
+                <meshStandardMaterial color="#edf1f3" roughness={0.92} />
               </mesh>
             </group>
 
             <group position={[5.4, 0.5, 0]}>
               <mesh position={[0, 1.2, 0]} rotation={[0, Math.PI / 2, 0]}>
                 <boxGeometry args={[6.4, 3.2, 0.2]} />
-                <meshStandardMaterial color="#111827" roughness={0.9} />
+                <meshStandardMaterial color="#edf1f3" roughness={0.92} />
               </mesh>
             </group>
 
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.3, 0]} receiveShadow>
               <planeGeometry args={[20, 20]} />
-              <meshStandardMaterial color="#0b1120" roughness={0.95} />
+              <meshStandardMaterial color="#dbe3e8" roughness={0.97} />
             </mesh>
 
             <group position={[0, 2.8, 0]}>
               {[-2.5, 0, 2.5].map((x) => (
                 <mesh key={x} position={[x, 0, 0]}>
                   <boxGeometry args={[1.4, 0.08, 0.8]} />
-                  <meshStandardMaterial color="#e2e8f0" emissive="#38bdf8" emissiveIntensity={0.12} />
+                  <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.18} />
                 </mesh>
               ))}
             </group>
@@ -1280,7 +1953,7 @@ export function InteractiveChemistryLab({
             <group position={[0, -0.72, 0]}>
               <mesh receiveShadow castShadow>
                 <boxGeometry args={[6.2, 0.16, 3.7]} />
-                <meshStandardMaterial color="#5b412d" roughness={0.82} />
+                <meshStandardMaterial color="#d4d8dc" roughness={0.48} metalness={0.45} />
               </mesh>
               {[
                 [-2.85, -0.52, 1.55],
@@ -1290,7 +1963,7 @@ export function InteractiveChemistryLab({
               ].map((position, index) => (
                 <mesh key={index} position={position as [number, number, number]} castShadow>
                   <boxGeometry args={[0.15, 1.04, 0.15]} />
-                  <meshStandardMaterial color="#3f2b1e" />
+                  <meshStandardMaterial color="#9aa5af" metalness={0.45} roughness={0.4} />
                 </mesh>
               ))}
             </group>
@@ -1298,7 +1971,7 @@ export function InteractiveChemistryLab({
             <group position={[3.45, -0.4, -0.95]}>
               <mesh>
                 <boxGeometry args={[1.1, 1.6, 1]} />
-                <meshStandardMaterial color="#1f2937" metalness={0.4} roughness={0.45} />
+                <meshStandardMaterial color="#cfd7de" metalness={0.4} roughness={0.45} />
               </mesh>
               <mesh position={[0, 0.05, 0.44]}>
                 <boxGeometry args={[0.95, 1.45, 0.03]} />
@@ -1309,11 +1982,11 @@ export function InteractiveChemistryLab({
             <group position={[-4.05, -0.2, -0.8]}>
               <mesh position={[0, 0.8, 0]}>
                 <boxGeometry args={[0.9, 1.8, 0.9]} />
-                <meshStandardMaterial color="#1e293b" />
+                <meshStandardMaterial color="#d7dde2" />
               </mesh>
               <mesh position={[0.2, 1.45, 0.45]}>
                 <cylinderGeometry args={[0.08, 0.08, 0.45, 20]} />
-                <meshStandardMaterial color="#38bdf8" metalness={0.7} roughness={0.3} />
+                <meshStandardMaterial color="#8fb9cf" metalness={0.7} roughness={0.3} />
               </mesh>
               <mesh position={[-0.15, 1.1, 0.45]} rotation={[0, 0, Math.PI / 2]}>
                 <cylinderGeometry args={[0.05, 0.05, 0.45, 20]} />
@@ -1349,6 +2022,65 @@ export function InteractiveChemistryLab({
                 <boxGeometry args={[0.2, 0.18, 0.08]} />
                 <meshStandardMaterial color="#f8fafc" roughness={0.2} />
               </mesh>
+            </group>
+
+            {benchEquipment
+              .filter((equipment) => equipment.visible)
+              .map((equipment) => (
+                <group
+                  key={equipment.id}
+                  position={equipment.position}
+                  onPointerDownCapture={(e) => {
+                    e.stopPropagation();
+                    beginDragEquipment(equipment.id, e);
+                  }}
+                  onPointerMoveCapture={(e) => {
+                    e.stopPropagation();
+                    updateDragContainer(e);
+                  }}
+                  onPointerUpCapture={(e) => {
+                    e.stopPropagation();
+                    endDragContainer(e);
+                  }}
+                >
+                  {equipment.kind === "washBottle" && <WashBottle3D position={[0, 0, 0]} />}
+                  {equipment.kind === "retortStand" && <RetortStand3D position={[0, 0, 0]} />}
+                  {equipment.kind === "balance" && <DigitalBalance3D position={[0, 0, 0]} />}
+                  {equipment.kind === "tubeRack" && <TestTubeRack3D position={[0, 0, 0]} />}
+                  {equipment.kind === "phMeter" && (
+                    <RealisticPHMeter3D position={[0, 0, 0]} currentPH={averagePH ?? 7} />
+                  )}
+                  {equipment.kind === "thermometer" && (
+                    <RealisticThermometer3D
+                      position={[0, 0, 0]}
+                      rotation={[0, 0, Math.PI / 3.5]}
+                      temperature={selectedContainer?.temperature ?? 25}
+                    />
+                  )}
+                </group>
+              ))}
+            <group position={[-2.68, -0.52, -0.72]}>
+              <RealisticChemicalBottle3D
+                position={[0, 0, 0]}
+                chemicalName="Nitric Acid"
+                chemicalColor="#fff0a8"
+                hazardLevel="extreme"
+                fillLevel={0.68}
+              />
+              <RealisticChemicalBottle3D
+                position={[0.34, 0, 0.02]}
+                chemicalName="Phosphoric Acid"
+                chemicalColor="#f9ebb5"
+                hazardLevel="high"
+                fillLevel={0.64}
+              />
+              <RealisticChemicalBottle3D
+                position={[0.68, 0, 0]}
+                chemicalName="Ethanol"
+                chemicalColor="#dff7ff"
+                hazardLevel="medium"
+                fillLevel={0.72}
+              />
             </group>
 
             {containers.map((container) => {
@@ -1394,9 +2126,9 @@ export function InteractiveChemistryLab({
                 <group
                   key={`heat-${container.id}`}
                   position={[
-                    container.id === "flask-1" ? -1.45 : 0,
+                    container.position[0],
                     -0.65,
-                    container.id === "flask-1" ? 0.45 : 0,
+                    container.position[2],
                   ]}
                 >
                   <RealisticTripod3D position={[0, 0.1, 0]} />
@@ -1418,78 +2150,78 @@ export function InteractiveChemistryLab({
             />
           </Canvas>
 
-          <div className="pointer-events-none absolute left-4 top-4 max-w-xs rounded-2xl border border-cyan-500/20 bg-slate-950/75 p-4 backdrop-blur">
+          <div className="pointer-events-none absolute left-4 top-4 max-w-xs rounded-2xl border border-sky-200 bg-white/92 p-4 shadow-sm backdrop-blur">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-cyan-300" />
-              <p className="text-sm font-semibold text-slate-50">Immersive bench mode</p>
+              <Sparkles className="h-4 w-4 text-sky-600" />
+              <p className="text-sm font-semibold text-slate-900">Immersive bench mode</p>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-slate-400">
-              Rotate around the room, inspect the shelves, select glassware, and move reactants into the vessel of your choice.
+            <p className="mt-2 text-xs leading-relaxed text-slate-600">
+              Rotate around the room, inspect the shelves, select glassware, and arrange vessels and bench tools the way a normal laboratory workflow requires.
             </p>
           </div>
 
-          <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2 backdrop-blur">
-            <p className="text-xs text-slate-400">
-              Click a bottle to inspect it. Click any vessel to make it active. Drag the scene to move around the laboratory.
+          <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl border border-slate-200 bg-white/92 px-4 py-2 shadow-sm backdrop-blur">
+            <p className="text-xs text-slate-600">
+              Click a bottle to inspect it. Click any vessel to make it active. Drag a vessel or tool to place it on the workbench.
             </p>
           </div>
         </div>
 
-        <div className="w-[300px] space-y-4 overflow-y-auto border-l border-slate-800 bg-slate-950/60 p-4">
-          <Card className="border-slate-800 bg-slate-900/70">
+        <div className="order-3 w-full shrink-0 space-y-4 border-t border-slate-200 bg-white/70 p-4 xl:w-[300px] xl:overflow-y-auto xl:border-l xl:border-t-0">
+          <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm text-slate-100">
-                <Gauge className="h-4 w-4 text-cyan-300" />
+              <CardTitle className="flex items-center gap-2 text-sm text-slate-900">
+                <Gauge className="h-4 w-4 text-sky-600" />
                 Active vessel analysis
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {selectedContainer ? (
                 <>
-                  <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-                    <p className="text-sm font-semibold text-slate-100">{selectedContainer.label}</p>
-                    <p className="text-xs text-slate-400">{selectedContainer.type} workstation</p>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-sm font-semibold text-slate-900">{selectedContainer.label}</p>
+                    <p className="text-xs text-slate-600">{selectedContainer.type} workstation</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex items-center gap-2 text-slate-500">
                         <Droplets className="h-3.5 w-3.5" />
                         Volume
                       </div>
-                      <p className="mt-1 font-semibold text-slate-100">
+                      <p className="mt-1 font-semibold text-slate-900">
                         {getContainerVolume(selectedContainer).toFixed(0)}mL
                       </p>
                     </div>
-                    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex items-center gap-2 text-slate-500">
                         <Thermometer className="h-3.5 w-3.5" />
                         Temperature
                       </div>
-                      <p className="mt-1 font-semibold text-slate-100">
+                      <p className="mt-1 font-semibold text-slate-900">
                         {selectedContainer.temperature}°C
                       </p>
                     </div>
-                    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex items-center gap-2 text-slate-500">
                         <Beaker className="h-3.5 w-3.5" />
                         Estimated pH
                       </div>
-                      <p className="mt-1 font-semibold text-slate-100">
+                      <p className="mt-1 font-semibold text-slate-900">
                         {averagePH ?? "N/A"}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex items-center gap-2 text-slate-500">
                         <AlertTriangle className="h-3.5 w-3.5" />
                         Hazard
                       </div>
-                      <p className="mt-1 font-semibold text-slate-100">
+                      <p className="mt-1 font-semibold text-slate-900">
                         {getHazardLabel(selectedContainer)}
                       </p>
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Contents</p>
                     <div className="mt-2 space-y-2">
                       {selectedContainer.contents.length ? (
@@ -1500,7 +2232,12 @@ export function InteractiveChemistryLab({
                                 className="h-3 w-3 rounded-full border border-white/20"
                                 style={{ backgroundColor: item.color }}
                               />
-                              <span className="text-slate-300">{item.name}</span>
+                              <div>
+                                <span className="text-slate-700">{item.name}</span>
+                                <p className="text-[11px] text-slate-500">
+                                  {getPhysicalStateLabel(item.state)} · pH {item.pH}
+                                </p>
+                              </div>
                             </div>
                             <span className="text-slate-500">{item.amount.toFixed(0)}mL</span>
                           </div>
@@ -1510,15 +2247,38 @@ export function InteractiveChemistryLab({
                       )}
                     </div>
                   </div>
+
+                  {activeSelectedReaction ? (
+                    <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Current reaction</p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">
+                        {activeSelectedReaction.effect.message}
+                      </p>
+                      <div className="mt-3 space-y-2 text-xs leading-relaxed text-slate-700">
+                        <div>
+                          <span className="font-semibold text-slate-900">Equation:</span>{" "}
+                          {activeSelectedReaction.effect.equation}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-slate-900">Visible evidence:</span>{" "}
+                          {activeSelectedReaction.effect.visibleEvidence}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-slate-900">Real-world lab note:</span>{" "}
+                          {activeSelectedReaction.effect.realWorldNote}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </>
               ) : null}
             </CardContent>
           </Card>
 
-          <Card className="border-slate-800 bg-slate-900/70">
+          <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm text-slate-100">
-                <AlertTriangle className="h-4 w-4 text-yellow-300" />
+              <CardTitle className="flex items-center gap-2 text-sm text-slate-900">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
                 Laboratory observations
               </CardTitle>
             </CardHeader>
@@ -1536,7 +2296,7 @@ export function InteractiveChemistryLab({
                             ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
                             : observation.includes("Indicator") || observation.includes("pink")
                               ? "border-pink-500/30 bg-pink-500/10 text-pink-100"
-                              : "border-slate-800 bg-slate-950/70 text-slate-300"
+                              : "border-slate-200 bg-slate-50 text-slate-700"
                     }`}
                   >
                     {observation}
@@ -1548,7 +2308,7 @@ export function InteractiveChemistryLab({
                 variant="outline"
                 size="sm"
                 onClick={() => setObservations(["Observation feed cleared. Continue the experiment to generate new evidence."])}
-                className="w-full border-slate-700 text-slate-300"
+                className="w-full border-slate-300 text-slate-700"
               >
                 <RotateCcw className="mr-2 h-3.5 w-3.5" />
                 Clear observations
@@ -1556,16 +2316,16 @@ export function InteractiveChemistryLab({
             </CardContent>
           </Card>
 
-          <Card className="border-slate-800 bg-slate-900/70">
+          <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm text-slate-100">
-                <Sparkles className="h-4 w-4 text-violet-300" />
+              <CardTitle className="flex items-center gap-2 text-sm text-slate-900">
+                <Sparkles className="h-4 w-4 text-violet-600" />
                 Fast reaction ideas
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-xs text-slate-300">
+            <CardContent className="space-y-2 text-xs text-slate-700">
               {QUICK_REACTIONS.map((reaction) => (
-                <div key={reaction} className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
+                <div key={reaction} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                   {reaction}
                 </div>
               ))}
@@ -1575,7 +2335,7 @@ export function InteractiveChemistryLab({
           <Button
             onClick={() => resetLab()}
             variant="outline"
-            className="w-full border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/10"
+            className="w-full border-sky-300 text-sky-700 hover:bg-sky-50"
           >
             <RotateCcw className="mr-2 h-4 w-4" />
             Reset whole laboratory
@@ -1583,7 +2343,7 @@ export function InteractiveChemistryLab({
         </div>
 
         {showNotebook && (
-          <div className="w-[320px] overflow-y-auto border-l border-slate-800 bg-slate-950/70 p-4">
+          <div className="w-[320px] overflow-y-auto border-l border-slate-200 bg-white/80 p-4">
             <LabNotebook
               labType="chemistry"
               experimentTitle={activeDemoPreset.title}

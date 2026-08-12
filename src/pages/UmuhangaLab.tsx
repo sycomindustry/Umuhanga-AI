@@ -31,11 +31,11 @@ const LAB_ROADMAP = [
     id: "chemistry",
     title: "Chemistry Laboratory",
     icon: FlaskConical,
-    status: "Now building",
+    status: "Open now",
     description:
-      "Immersive 3D room, real equipment handling, visible reactions, periodic table exploration, molecules, and the AI scientist assistant.",
+      "A familiar chemistry room with bright finishes, bench equipment, visible reactions, periodic reference tools, molecule views, and guided scientific assistance.",
     accent:
-      "border-cyan-500/30 bg-gradient-to-br from-cyan-500/12 via-slate-900 to-indigo-500/12 text-cyan-100",
+      "border-sky-200 bg-[linear-gradient(135deg,#ffffff_0%,#f4fbff_100%)] text-slate-800",
   },
   {
     id: "biology",
@@ -43,9 +43,9 @@ const LAB_ROADMAP = [
     icon: Microscope,
     status: "Next phase",
     description:
-      "Virtual microscopy, cells, tissues, DNA zoom journeys, and organism exploration will inherit the same immersive pattern.",
+      "Microscopy, tissue and cell work, specimen handling, and guided biological observation will adopt the same grounded real-lab presentation.",
     accent:
-      "border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-slate-900 to-green-500/10 text-emerald-100",
+      "border-emerald-200 bg-[linear-gradient(135deg,#ffffff_0%,#f4fff8_100%)] text-slate-800",
   },
   {
     id: "physics",
@@ -53,17 +53,35 @@ const LAB_ROADMAP = [
     icon: Orbit,
     status: "After chemistry",
     description:
-      "Circuits, forces, gravity, motion, sound, and light with variable-driven simulations will follow after the chemistry flagship.",
+      "Circuits, forces, motion, sound, and optics will follow with realistic stations, measurements, and experiment control panels.",
     accent:
-      "border-violet-500/20 bg-gradient-to-br from-violet-500/10 via-slate-900 to-fuchsia-500/10 text-violet-100",
+      "border-violet-200 bg-[linear-gradient(135deg,#ffffff_0%,#faf7ff_100%)] text-slate-800",
   },
 ];
 
 const EXPERIENCE_PILLARS = [
-  "Realistic 3D laboratory environment",
+  "Bright real-world laboratory environment",
   "Natural equipment handling and liquid transfer",
-  "Reaction evidence, notebooking, and scientific explanation",
-  "AI scientist guidance in English, Kinyarwanda, and French",
+  "Reaction evidence, notebooking, and practical scientific explanation",
+  "Guidance in English, Kinyarwanda, and French for every kind of visitor",
+];
+
+const NEXT_IMMERSION_UPGRADES = [
+  {
+    title: "First-person navigation polish",
+    description:
+      "Smoother walk speed, softer camera settling, doorway alignment, station approach cues, and cleaner desktop or touch transitions so movement feels like a normal lab visit.",
+  },
+  {
+    title: "VR-ready interaction layer",
+    description:
+      "Shared interaction rules for controller pointing, grab zones, reach targets, and safety boundaries so the same room can extend naturally into headsets later.",
+  },
+  {
+    title: "Reaction engine + guided experiments",
+    description:
+      "Higher-fidelity chemistry state, clearer product evidence, step-linked experiment guidance, and deeper integration between the live bench, notebook, and guided experiment flows.",
+  },
 ];
 
 const UmuhangaLab = () => {
@@ -71,63 +89,63 @@ const UmuhangaLab = () => {
   const [seed, setSeed] = useState<string | null>(null);
   const [tab, setTab] = useState("immersive");
   const [chemistryContext, setChemistryContext] = useState(
-    "Umuhanga AI chemistry laboratory: immersive room navigation, experiment bench work, periodic table learning, molecular structure exploration, acids and bases, reactions, and lab safety.",
+    "Umuhanga AI chemistry laboratory: bright room navigation, experiment bench work, periodic table reference, molecular structure exploration, reactions, guided procedures, and laboratory safety.",
   );
   const chemistryProgress = useMemo(() => 58, []);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_28%),linear-gradient(180deg,#020617_0%,#020617_45%,#0f172a_100%)]">
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f8fbfd_0%,#eef4f7_100%)]">
+      <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="container mx-auto flex flex-wrap items-center gap-4 px-4 py-4">
           <Button
             variant="ghost"
             size="sm"
-            className="text-slate-300"
+            className="text-slate-600"
             onClick={() => navigate("/virtual-lab")}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Labs
           </Button>
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 p-2 shadow-lg">
-              <Sparkles className="h-6 w-6 text-white" />
+            <div className="rounded-xl bg-sky-100 p-2 text-sky-700 shadow-sm">
+              <Sparkles className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-50">
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">
                 Umuhanga AI Virtual Laboratory
               </h1>
-              <p className="text-xs text-slate-400">
-                Every student can experience real science digitally
+              <p className="text-xs text-slate-600">
+                A familiar laboratory space for experiments, demonstrations, orientation, and guided practice
               </p>
             </div>
           </div>
-          <Badge variant="outline" className="ml-auto border-cyan-400/40 text-cyan-300">
-            Chemistry flagship release
+          <Badge variant="outline" className="ml-auto border-sky-300 bg-sky-50 text-sky-700">
+            Chemistry environment live
           </Badge>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6">
         <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <Card className="border-cyan-500/20 bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950">
+          <Card className="border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f6fbff_55%,#edf4f8_100%)] shadow-sm">
             <CardContent className="space-y-6 p-6">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="border-cyan-400/40 text-cyan-200">
+                <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-700">
                   Umuhanga AI Virtual Laboratory
                 </Badge>
-                <Badge variant="outline" className="border-slate-700 text-slate-300">
-                  Chemistry first
+                <Badge variant="outline" className="border-slate-300 text-slate-600">
+                  Real-world chemistry suite
                 </Badge>
               </div>
 
               <div className="space-y-3">
-                <h2 className="max-w-3xl text-3xl font-bold tracking-tight text-slate-50 sm:text-4xl">
-                  Build the laboratory innovation first, then expand into the full education ecosystem.
+                <h2 className="max-w-3xl text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+                  Step into a bright, familiar laboratory that feels grounded in the real world.
                 </h2>
-                <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
-                  This release turns Umuhanga AI into a believable virtual chemistry space: a
-                  room you can enter, equipment you can manipulate, reactions you can observe, and
-                  an AI scientist that guides the learning process.
+                <p className="max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+                  This release turns Umuhanga AI into a believable chemistry environment with clear
+                  lighting, familiar surfaces, practical equipment handling, visible reactions, and
+                  guided support that works for anyone entering the laboratory.
                 </p>
               </div>
 
@@ -135,7 +153,7 @@ const UmuhangaLab = () => {
                 {EXPERIENCE_PILLARS.map((pillar) => (
                   <div
                     key={pillar}
-                    className="rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-300"
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
                   >
                     {pillar}
                   </div>
@@ -145,16 +163,16 @@ const UmuhangaLab = () => {
               <div className="flex flex-wrap gap-3">
                 <Button
                   onClick={() => setTab("immersive")}
-                  className="bg-gradient-to-r from-cyan-500 to-indigo-600 text-white"
+                  className="bg-sky-600 text-white hover:bg-sky-700"
                 >
                   Enter chemistry lab
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-slate-700 text-slate-200 hover:bg-slate-900"
+                  className="border-slate-300 text-slate-700 hover:bg-slate-50"
                   onClick={() =>
                     setSeed(
-                      "Give me a short orientation to this chemistry laboratory and explain how a student should begin the first experiment.",
+                      "Give me a short orientation to this chemistry laboratory and explain how someone should begin the first guided experiment.",
                     )
                   }
                 >
@@ -164,37 +182,37 @@ const UmuhangaLab = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-slate-800 bg-slate-900/70">
+          <Card className="border border-slate-200 bg-white/95 shadow-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-slate-100">
-                <Trophy className="h-5 w-5 text-cyan-300" />
-                Demonstration goals
+              <CardTitle className="flex items-center gap-2 text-slate-900">
+                <Trophy className="h-5 w-5 text-sky-600" />
+                Experience focus
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
               <div>
-                <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+                <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
                   <span>Chemistry laboratory build focus</span>
                   <span>{chemistryProgress}%</span>
                 </div>
-                <Progress value={chemistryProgress} className="h-2 bg-slate-800" />
+                <Progress value={chemistryProgress} className="h-2 bg-slate-200" />
               </div>
 
-              <div className="space-y-3 text-sm text-slate-300">
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-                  <p className="font-semibold text-slate-100">First working demo</p>
-                  <p className="mt-1 text-sm text-slate-400">
+              <div className="space-y-3 text-sm text-slate-700">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="font-semibold text-slate-900">Current working experience</p>
+                  <p className="mt-1 text-sm text-slate-600">
                     Enter the laboratory, pick equipment, select chemicals, run a reaction, watch
                     visible scientific changes, and ask the AI scientist what happened.
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-                  <div className="flex items-center gap-2 text-slate-100">
-                    <Languages className="h-4 w-4 text-emerald-300" />
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center gap-2 text-slate-900">
+                    <Languages className="h-4 w-4 text-emerald-600" />
                     Multilingual support
                   </div>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-1 text-sm text-slate-600">
                     Text and voice guidance are available in English, Kinyarwanda, and French
                     through the AI scientist panel.
                   </p>
@@ -211,7 +229,7 @@ const UmuhangaLab = () => {
               <Card key={lab.id} className={`border ${lab.accent}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
-                    <div className="rounded-2xl bg-slate-950/70 p-3">
+                      <div className="rounded-2xl bg-white p-3 shadow-sm">
                       <Icon className="h-6 w-6" />
                     </div>
                     <div className="space-y-1">
@@ -221,7 +239,7 @@ const UmuhangaLab = () => {
                           {lab.status}
                         </Badge>
                       </div>
-                      <p className="text-sm text-slate-300">{lab.description}</p>
+                      <p className="text-sm text-slate-600">{lab.description}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -230,8 +248,21 @@ const UmuhangaLab = () => {
           })}
         </section>
 
+        <section className="mt-6 grid gap-4 lg:grid-cols-3">
+          {NEXT_IMMERSION_UPGRADES.map((upgrade) => (
+            <Card key={upgrade.title} className="border border-slate-200 bg-white/95 shadow-sm">
+              <CardContent className="p-5">
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-slate-900">{upgrade.title}</h3>
+                  <p className="text-sm leading-6 text-slate-600">{upgrade.description}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
+
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-5 mt-6 grid w-full max-w-4xl grid-cols-5 bg-slate-900">
+          <TabsList className="mb-5 mt-6 grid w-full max-w-4xl grid-cols-5 border border-slate-200 bg-white">
             <TabsTrigger value="immersive">
               <Compass className="mr-2 h-4 w-4" /> Immersive
             </TabsTrigger>
@@ -260,45 +291,45 @@ const UmuhangaLab = () => {
             <div className="grid gap-4 2xl:grid-cols-[1fr_360px]">
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-3">
-                  <Card className="border-slate-800 bg-slate-900/70">
+                  <Card className="border border-slate-200 bg-white/95">
                     <CardContent className="p-4">
-                      <div className="flex items-center gap-2 text-cyan-200">
+                      <div className="flex items-center gap-2 text-sky-700">
                         <FlaskConical className="h-4 w-4" />
                         Chemistry focus
                       </div>
-                      <p className="mt-2 text-sm text-slate-400">
+                      <p className="mt-2 text-sm text-slate-600">
                         Reactions, pH, indicators, heating, displacement, gas evolution, and
                         molecular reasoning.
                       </p>
                     </CardContent>
                   </Card>
-                  <Card className="border-slate-800 bg-slate-900/70">
+                  <Card className="border border-slate-200 bg-white/95">
                     <CardContent className="p-4">
-                      <div className="flex items-center gap-2 text-emerald-200">
+                      <div className="flex items-center gap-2 text-emerald-700">
                         <Languages className="h-4 w-4" />
                         AI scientist
                       </div>
-                      <p className="mt-2 text-sm text-slate-400">
+                      <p className="mt-2 text-sm text-slate-600">
                         Ask what happened, what to do next, which rule applies, and why the
                         experiment behaved the way it did.
                       </p>
                     </CardContent>
                   </Card>
-                  <Card className="border-slate-800 bg-slate-900/70">
+                  <Card className="border border-slate-200 bg-white/95">
                     <CardContent className="p-4">
-                      <div className="flex items-center gap-2 text-violet-200">
+                      <div className="flex items-center gap-2 text-violet-700">
                         <Waves className="h-4 w-4" />
                         Future-ready
                       </div>
-                      <p className="mt-2 text-sm text-slate-400">
-                        The interaction model is being shaped for later VR, AR, and mobile lab
-                        extensions.
+                      <p className="mt-2 text-sm text-slate-600">
+                        The room is being prepared for polished first-person navigation, VR-ready
+                        controls, and deeper guided experiment integration.
                       </p>
                     </CardContent>
                   </Card>
                 </div>
 
-                <div className="h-[760px] overflow-hidden rounded-2xl border border-slate-800">
+                <div className="h-[760px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <InteractiveChemistryLab
                     onAskAI={(question) => {
                       setSeed(question);
@@ -309,14 +340,14 @@ const UmuhangaLab = () => {
               </div>
 
               <div className="space-y-4">
-                <Card className="border-cyan-500/20 bg-slate-900/70">
+                <Card className="border border-slate-200 bg-white/95 shadow-sm">
                   <CardHeader>
-                    <CardTitle className="text-slate-100">Chemistry release scope</CardTitle>
+                    <CardTitle className="text-slate-900">Chemistry release scope</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3 text-sm text-slate-300">
-                    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-                      <p className="font-semibold text-slate-100">What students can do now</p>
-                      <ul className="mt-2 space-y-2 text-sm text-slate-400">
+                  <CardContent className="space-y-3 text-sm text-slate-700">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="font-semibold text-slate-900">What people can do now</p>
+                      <ul className="mt-2 space-y-2 text-sm text-slate-600">
                         <li>Enter a staged 3D chemistry room</li>
                         <li>Select reagents and target vessels</li>
                         <li>Transfer liquids between containers</li>
@@ -324,12 +355,12 @@ const UmuhangaLab = () => {
                         <li>Ask the AI scientist for guidance</li>
                       </ul>
                     </div>
-                    <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-                      <p className="font-semibold text-slate-100">What comes next</p>
-                      <p className="mt-2 text-slate-400">
-                        Biology will inherit the same immersive pattern through microscopes, cells,
-                        organs, and DNA zoom journeys. Physics will follow with circuits, forces,
-                        and variable-driven laboratory tasks.
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="font-semibold text-slate-900">What comes next</p>
+                      <p className="mt-2 text-slate-600">
+                        First-person navigation will feel smoother, the interaction layer will be
+                        prepared for VR use, and the reaction engine will connect more deeply to
+                        guided experiments and step-by-step lab support.
                       </p>
                     </div>
                   </CardContent>
