@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { LabType, EQUIPMENT_CATALOG, PlacedEquipment } from '@/types/lab';
 import { useExperimentSession } from '@/hooks/useExperimentSession';
 import { EquipmentPanel } from './EquipmentPanel';
@@ -47,20 +47,47 @@ export function InteractiveLab({ labType, experimentTitle, onDataChange }: Inter
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [pendingPlacementId, setPendingPlacementId] = useState<string | null>(null);
 
   const selectedPlaced = session.placedEquipment.find(e => e.id === selectedPlacedId) || null;
+  const pendingPlacementEquipment = pendingPlacementId ? EQUIPMENT_CATALOG[pendingPlacementId] : null;
+
+  useEffect(() => {
+    if (!pendingPlacementId) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPendingPlacementId(null);
+        toast.info('Placement cancelled');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pendingPlacementId]);
 
   const handleEquipmentSelect = useCallback((equipmentId: string) => {
-    setSelectedEquipmentId(equipmentId);
-    const equipment = EQUIPMENT_CATALOG[equipmentId];
-    if (voiceEnabled && equipment) {
-      speak(`${equipment.name}. ${equipment.usageInstructions}`);
+    if (pendingPlacementId === equipmentId) {
+      setPendingPlacementId(null);
+      toast.info('Placement cancelled');
+      return;
     }
-  }, [voiceEnabled]);
+
+    setSelectedEquipmentId(equipmentId);
+    setSelectedPlacedId(null);
+    setPendingPlacementId(equipmentId);
+    const equipment = EQUIPMENT_CATALOG[equipmentId];
+    toast.info(`${equipment?.name ?? 'Equipment'} picked. Click on the bench to place it.`);
+    if (voiceEnabled && equipment) {
+      speak(`${equipment.name}. ${equipment.usageInstructions}. Click on the bench to place it.`);
+    }
+  }, [pendingPlacementId, voiceEnabled]);
 
   const handleDropEquipment = useCallback((equipmentId: string, position: { x: number; y: number }) => {
     const placed = addEquipment(equipmentId, position);
     if (placed) {
+      setPendingPlacementId(null);
+      setSelectedPlacedId(placed.id);
       onDataChange?.({ action: 'add', equipment: equipmentId, position });
     }
   }, [addEquipment, onDataChange]);
@@ -186,8 +213,9 @@ export function InteractiveLab({ labType, experimentTitle, onDataChange }: Inter
         <div className="p-4 bg-muted/50 border-b border-border">
           <h3 className="font-semibold mb-2">How to Use</h3>
           <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• <strong>Drag</strong> equipment from the panel to the lab bench</li>
+            <li>• <strong>Pick</strong> equipment from storage, then click on the bench to place it</li>
             <li>• <strong>Click</strong> placed items to select and see controls</li>
+            <li>• <strong>Drag</strong> placed items to rearrange them naturally on the work surface</li>
             <li>• <strong>Connect</strong> equipment to enable interactions (heat, circuits, microscope)</li>
             <li>• <strong>Start</strong> the experiment to activate equipment controls</li>
             <li>• Always wear <strong>safety gear</strong> before handling dangerous materials</li>
@@ -201,6 +229,7 @@ export function InteractiveLab({ labType, experimentTitle, onDataChange }: Inter
           labType={labType}
           onEquipmentSelect={handleEquipmentSelect}
           selectedEquipment={selectedEquipmentId}
+          pendingPlacementId={pendingPlacementId}
         />
 
         <div className="flex-1 p-4 overflow-auto">
@@ -215,6 +244,9 @@ export function InteractiveLab({ labType, experimentTitle, onDataChange }: Inter
             selectedPlacedId={selectedPlacedId}
             connectingFrom={connectingFrom}
             setConnectingFrom={setConnectingFrom}
+            pendingEquipmentId={pendingPlacementId}
+            pendingEquipment={pendingPlacementEquipment ?? null}
+            onCancelPlacement={() => setPendingPlacementId(null)}
           />
         </div>
 

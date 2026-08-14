@@ -47,6 +47,8 @@ interface Quiz {
   _count?: { questions: number };
 }
 
+const NO_SUBJECT_VALUE = "__no_subject__";
+
 export const QuizManagement = () => {
   const { toast } = useToast();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -278,14 +280,19 @@ export const QuizManagement = () => {
                 <div className="space-y-2">
                   <Label htmlFor="subject">Subject (Optional)</Label>
                   <Select
-                    value={formData.subject_id}
-                    onValueChange={(value) => setFormData({ ...formData, subject_id: value })}
+                    value={formData.subject_id || NO_SUBJECT_VALUE}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        subject_id: value === NO_SUBJECT_VALUE ? "" : value,
+                      })
+                    }
                   >
                     <SelectTrigger id="subject">
                       <SelectValue placeholder="Select subject" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No subject</SelectItem>
+                      <SelectItem value={NO_SUBJECT_VALUE}>No subject</SelectItem>
                       {subjects.map((subject) => (
                         <SelectItem key={subject.id} value={subject.id}>
                           {subject.name}

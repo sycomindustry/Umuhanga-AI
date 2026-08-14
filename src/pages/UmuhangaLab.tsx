@@ -1,15 +1,10 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { PeriodicTableLab } from "@/components/lab/PeriodicTableLab";
-import { MoleculeViewer3D } from "@/components/lab/MoleculeViewer3D";
-import { AIScientistAssistant } from "@/components/lab/AIScientistAssistant";
-import { InteractiveChemistryLab } from "@/components/lab/InteractiveChemistryLab";
-import { ImmersiveChemistryExperience } from "@/components/lab/ImmersiveChemistryExperience";
 import {
   ArrowLeft,
   Atom,
@@ -25,6 +20,38 @@ import {
   Trophy,
   Waves,
 } from "lucide-react";
+
+const PeriodicTableLab = lazy(() =>
+  import("@/components/lab/PeriodicTableLab").then((module) => ({
+    default: module.PeriodicTableLab,
+  })),
+);
+const MoleculeViewer3D = lazy(() =>
+  import("@/components/lab/MoleculeViewer3D").then((module) => ({
+    default: module.MoleculeViewer3D,
+  })),
+);
+const AIScientistAssistant = lazy(() =>
+  import("@/components/lab/AIScientistAssistant").then((module) => ({
+    default: module.AIScientistAssistant,
+  })),
+);
+const InteractiveChemistryLab = lazy(() =>
+  import("@/components/lab/InteractiveChemistryLab").then((module) => ({
+    default: module.InteractiveChemistryLab,
+  })),
+);
+const ImmersiveChemistryExperience = lazy(() =>
+  import("@/components/lab/ImmersiveChemistryExperience").then((module) => ({
+    default: module.ImmersiveChemistryExperience,
+  })),
+);
+
+const LabPanelFallback = ({ height = "h-[760px]" }: { height?: string }) => (
+  <div className={`flex ${height} items-center justify-center rounded-2xl border border-slate-200 bg-white`}>
+    <p className="text-sm text-slate-500">Loading laboratory workspace...</p>
+  </div>
+);
 
 const LAB_ROADMAP = [
   {
@@ -281,10 +308,12 @@ const UmuhangaLab = () => {
           </TabsList>
 
           <TabsContent value="immersive">
-            <ImmersiveChemistryExperience
-              onContextChange={setChemistryContext}
-              onAskAI={setSeed}
-            />
+            <Suspense fallback={<LabPanelFallback />}>
+              <ImmersiveChemistryExperience
+                onContextChange={setChemistryContext}
+                onAskAI={setSeed}
+              />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="bench">
@@ -330,12 +359,14 @@ const UmuhangaLab = () => {
                 </div>
 
                 <div className="h-[760px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <InteractiveChemistryLab
-                    onAskAI={(question) => {
-                      setSeed(question);
-                      setTab("ai");
-                    }}
-                  />
+                  <Suspense fallback={<LabPanelFallback height="h-full" />}>
+                    <InteractiveChemistryLab
+                      onAskAI={(question) => {
+                        setSeed(question);
+                        setTab("ai");
+                      }}
+                    />
+                  </Suspense>
                 </div>
               </div>
 
@@ -367,36 +398,44 @@ const UmuhangaLab = () => {
                 </Card>
 
                 <div className="h-[760px]">
-                  <AIScientistAssistant
-                    experimentContext={chemistryContext}
-                    seedQuestion={seed}
-                    onSeedConsumed={() => setSeed(null)}
-                  />
+                  <Suspense fallback={<LabPanelFallback />}>
+                    <AIScientistAssistant
+                      experimentContext={chemistryContext}
+                      seedQuestion={seed}
+                      onSeedConsumed={() => setSeed(null)}
+                    />
+                  </Suspense>
                 </div>
               </div>
             </div>
           </TabsContent>
 
           <TabsContent value="periodic">
-            <PeriodicTableLab
-              onAskAI={(question) => {
-                setSeed(question);
-                setTab("ai");
-              }}
-            />
+            <Suspense fallback={<LabPanelFallback />}>
+              <PeriodicTableLab
+                onAskAI={(question) => {
+                  setSeed(question);
+                  setTab("ai");
+                }}
+              />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="molecules">
-            <MoleculeViewer3D />
+            <Suspense fallback={<LabPanelFallback />}>
+              <MoleculeViewer3D />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="ai">
             <div className="mx-auto max-w-3xl">
-              <AIScientistAssistant
-                experimentContext={chemistryContext}
-                seedQuestion={seed}
-                onSeedConsumed={() => setSeed(null)}
-              />
+              <Suspense fallback={<LabPanelFallback height="h-[420px]" />}>
+                <AIScientistAssistant
+                  experimentContext={chemistryContext}
+                  seedQuestion={seed}
+                  onSeedConsumed={() => setSeed(null)}
+                />
+              </Suspense>
             </div>
           </TabsContent>
         </Tabs>

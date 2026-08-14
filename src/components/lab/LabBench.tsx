@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { EQUIPMENT_CATALOG, PlacedEquipment, LabType } from '@/types/lab';
+import { EQUIPMENT_CATALOG, LabEquipmentItem, PlacedEquipment, LabType } from '@/types/lab';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,9 @@ interface LabBenchProps {
   selectedPlacedId: string | null;
   connectingFrom: string | null;
   setConnectingFrom: (id: string | null) => void;
+  pendingEquipmentId?: string | null;
+  pendingEquipment?: LabEquipmentItem | null;
+  onCancelPlacement?: () => void;
 }
 
 export function LabBench({
@@ -30,10 +33,25 @@ export function LabBench({
   selectedPlacedId,
   connectingFrom,
   setConnectingFrom,
+  pendingEquipmentId,
+  pendingEquipment,
+  onCancelPlacement,
 }: LabBenchProps) {
   const benchRef = useRef<HTMLDivElement>(null);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [placementPreview, setPlacementPreview] = useState<{ x: number; y: number } | null>(null);
+
+  const clampToBench = useCallback((x: number, y: number, rect: DOMRect) => ({
+    x: Math.max(56, Math.min(rect.width - 56, x)),
+    y: Math.max(96, Math.min(rect.height - 56, y)),
+  }), []);
+
+  const getBenchPosition = useCallback((clientX: number, clientY: number) => {
+    if (!benchRef.current) return null;
+    const rect = benchRef.current.getBoundingClientRect();
+    return clampToBench(clientX - rect.left, clientY - rect.top, rect);
+  }, [clampToBench]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -45,12 +63,10 @@ export function LabBench({
     const equipmentId = e.dataTransfer.getData('equipmentId');
     
     if (equipmentId && benchRef.current) {
-      const rect = benchRef.current.getBoundingClientRect();
-      const position = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      };
-      onDropEquipment(equipmentId, position);
+      const position = getBenchPosition(e.clientX, e.clientY);
+      if (position) {
+        onDropEquipment(equipmentId, position);
+      }
     }
   };
 
@@ -65,25 +81,51 @@ export function LabBench({
     }
 
     e.stopPropagation();
+    const rect = benchRef.current?.getBoundingClientRect();
     setDraggedItem(placedId);
     setDragOffset({
-      x: e.clientX - placed.position.x,
-      y: e.clientY - placed.position.y,
+      x: rect ? e.clientX - rect.left - placed.position.x : 0,
+      y: rect ? e.clientY - rect.top - placed.position.y : 0,
     });
   };
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (draggedItem && benchRef.current) {
       const rect = benchRef.current.getBoundingClientRect();
-      const newX = Math.max(40, Math.min(rect.width - 40, e.clientX - rect.left));
-      const newY = Math.max(40, Math.min(rect.height - 40, e.clientY - rect.top));
+      const { x: newX, y: newY } = clampToBench(
+        e.clientX - rect.left - dragOffset.x,
+        e.clientY - rect.top - dragOffset.y,
+        rect,
+      );
       onMoveEquipment(draggedItem, { x: newX, y: newY });
     }
-  }, [draggedItem, onMoveEquipment]);
+  }, [clampToBench, dragOffset.x, dragOffset.y, draggedItem, onMoveEquipment]);
 
   const handleMouseUp = useCallback(() => {
     setDraggedItem(null);
   }, []);
+
+  const handleBenchMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!pendingEquipmentId || draggedItem) return;
+    const position = getBenchPosition(e.clientX, e.clientY);
+    if (position) {
+      setPlacementPreview(position);
+    }
+  };
+
+  const handleBenchClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!pendingEquipmentId) return;
+    const position = getBenchPosition(e.clientX, e.clientY);
+    if (!position) return;
+    onDropEquipment(pendingEquipmentId, position);
+    setPlacementPreview(position);
+  };
+
+  const handleBenchLeave = () => {
+    if (!draggedItem) {
+      setPlacementPreview(null);
+    }
+  };
 
   useEffect(() => {
     if (draggedItem) {
@@ -151,12 +193,39 @@ export function LabBench({
       ref={benchRef}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onMouseMove={handleBenchMouseMove}
+      onMouseLeave={handleBenchLeave}
+      onClick={handleBenchClick}
       className={cn(
         "relative w-full h-full min-h-[500px] rounded-lg border-2 border-border overflow-hidden",
         getBenchBackground(),
-        connectingFrom && "cursor-crosshair"
+        connectingFrom && "cursor-crosshair",
+        pendingEquipmentId && "cursor-copy"
       )}
     >
+      {/* Storage wall */}
+      <div className="absolute inset-x-0 top-0 h-28 border-b border-white/10 bg-gradient-to-b from-black/20 to-transparent">
+        <div className="mx-6 mt-4 grid grid-cols-3 gap-3">
+          {[
+            'Chemical cupboard',
+            'Glassware cupboard',
+            'Tools and meters',
+          ].map((label) => (
+            <div
+              key={label}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-100">{label}</p>
+              <div className="mt-2 flex gap-2">
+                <div className="h-7 w-7 rounded-md bg-white/10" />
+                <div className="h-7 w-7 rounded-md bg-white/10" />
+                <div className="h-7 w-7 rounded-md bg-white/10" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Grid pattern */}
       <div 
         className="absolute inset-0 opacity-10"
@@ -165,6 +234,9 @@ export function LabBench({
           backgroundSize: '30px 30px',
         }}
       />
+
+      {/* Work surface */}
+      <div className="absolute inset-x-4 bottom-4 top-24 rounded-3xl border border-amber-100/10 bg-[linear-gradient(135deg,rgba(120,74,42,0.85),rgba(89,54,31,0.92))] shadow-inner" />
 
       {/* Connection lines */}
       {renderConnections()}
@@ -179,6 +251,32 @@ export function LabBench({
         </div>
       )}
 
+      {pendingEquipment && (
+        <div className="absolute left-6 top-32 z-40 rounded-xl border border-primary/30 bg-background/90 px-4 py-3 shadow-lg backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <div className="text-2xl">{pendingEquipment.icon}</div>
+            <div>
+              <p className="text-sm font-semibold">In hand: {pendingEquipment.name}</p>
+              <p className="text-xs text-muted-foreground">
+                Click anywhere on the workbench to place it.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 px-2 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancelPlacement?.();
+                setPlacementPreview(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Placed equipment */}
       {placedEquipment.map(placed => {
         const equipment = EQUIPMENT_CATALOG[placed.equipmentId];
@@ -190,7 +288,10 @@ export function LabBench({
               <TooltipTrigger asChild>
                 <div
                   onMouseDown={(e) => handleItemMouseDown(e, placed.id, placed)}
-                  onClick={() => onEquipmentClick(placed)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEquipmentClick(placed);
+                  }}
                   className={cn(
                     "absolute transform -translate-x-1/2 -translate-y-1/2 p-3 rounded-lg border-2 bg-card/90 backdrop-blur-sm transition-all cursor-move select-none",
                     selectedPlacedId === placed.id
@@ -206,6 +307,18 @@ export function LabBench({
                     zIndex: draggedItem === placed.id ? 100 : 10,
                   }}
                 >
+                  {selectedPlacedId === placed.id && (
+                    <button
+                      type="button"
+                      className="absolute -right-2 -top-2 rounded-full border border-border bg-background p-1 text-muted-foreground shadow-sm transition-colors hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveEquipment(placed.id);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
                   <div className="text-3xl text-center">{equipment.icon}</div>
                   <p className="text-xs font-medium text-center mt-1 whitespace-nowrap max-w-[80px] truncate">
                     {equipment.name}
@@ -260,13 +373,32 @@ export function LabBench({
         );
       })}
 
+      {/* Placement preview */}
+      {pendingEquipment && placementPreview && (
+        <div
+          className="absolute pointer-events-none z-30 -translate-x-1/2 -translate-y-1/2"
+          style={{
+            left: placementPreview.x,
+            top: placementPreview.y,
+          }}
+        >
+          <div className="rounded-xl border border-cyan-300/50 bg-cyan-100/15 px-4 py-3 text-center shadow-lg backdrop-blur-sm">
+            <div className="text-3xl opacity-90">{pendingEquipment.icon}</div>
+            <p className="mt-1 text-xs font-semibold text-white">{pendingEquipment.name}</p>
+            <p className="text-[10px] text-slate-200">Place on bench</p>
+          </div>
+        </div>
+      )}
+
       {/* Empty state */}
-      {placedEquipment.length === 0 && (
+      {placedEquipment.length === 0 && !pendingEquipment && (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-          <div className="text-center">
+          <div className="text-center rounded-2xl border border-white/10 bg-black/20 px-8 py-6 backdrop-blur-sm">
             <div className="text-5xl mb-4">🧪</div>
-            <p className="text-lg font-medium">Drop equipment here</p>
-            <p className="text-sm">Drag items from the equipment panel or click to select</p>
+            <p className="text-lg font-medium text-white">Prepare the bench</p>
+            <p className="text-sm text-slate-200">
+              Pick equipment from storage, then place it on the work surface like a normal laboratory.
+            </p>
           </div>
         </div>
       )}

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Send, Beaker, AlertTriangle, BookOpen, Wifi, FlaskConical } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { InteractiveLab } from "@/components/lab/InteractiveLab";
+import { InteractiveChemistryLab } from "@/components/lab/InteractiveChemistryLab";
 import { useRealtimeLab } from "@/hooks/useRealtimeLab";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -221,11 +222,15 @@ const ExperimentLab = () => {
           <TabsContent value="interactive" className="mt-0">
             <Card className="overflow-hidden">
               <CardContent className="p-0 h-[600px]">
-                <InteractiveLab
-                  labType={experiment.category.toLowerCase() as LabType}
-                  experimentTitle={experiment.title}
-                  onDataChange={handleSimulationDataChange}
-                />
+                {experiment.category.toLowerCase() === "chemistry" ? (
+                  <InteractiveChemistryLab onStateChange={handleSimulationDataChange} />
+                ) : (
+                  <InteractiveLab
+                    labType={experiment.category.toLowerCase() as LabType}
+                    experimentTitle={experiment.title}
+                    onDataChange={handleSimulationDataChange}
+                  />
+                )}
               </CardContent>
             </Card>
           </TabsContent>

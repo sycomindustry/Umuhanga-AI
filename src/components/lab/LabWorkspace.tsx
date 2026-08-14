@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Grid, Environment } from "@react-three/drei";
+import type { ThreeEvent } from "@react-three/fiber";
+import { OrbitControls, Grid, Environment, Html } from "@react-three/drei";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,11 +47,11 @@ export function LabWorkspace({
   const [showReport, setShowReport] = useState(false);
   const [observations, setObservations] = useState<string[]>([]);
   const [simulationData, setSimulationData] = useState<Record<string, any>>({});
+  const [pendingPlacement, setPendingPlacement] = useState<LabEquipment | null>(null);
+  const [placementPreview, setPlacementPreview] = useState<[number, number, number]>([0, 0, 0]);
 
   // Add equipment to workspace
   const handleEquipmentSelect = useCallback((equipmentId: string) => {
-    toggleEquipment(equipmentId);
-    
     const eq = equipment.find(e => e.id === equipmentId);
     if (!eq) return;
 
@@ -58,23 +59,33 @@ export function LabWorkspace({
     const isPlaced = placedEquipment.some(p => p.equipment.id === equipmentId);
     
     if (isPlaced) {
+      toggleEquipment(equipmentId);
       // Remove from workspace
       setPlacedEquipment(prev => prev.filter(p => p.equipment.id !== equipmentId));
+      if (pendingPlacement?.id === equipmentId) setPendingPlacement(null);
       toast.info(`Removed ${eq.name} from workspace`);
     } else {
-      // Add to workspace at random position
-      const newPosition: [number, number, number] = [
-        (Math.random() - 0.5) * 4,
-        0,
-        (Math.random() - 0.5) * 4,
-      ];
-      setPlacedEquipment(prev => [...prev, { equipment: eq, position: newPosition }]);
-      toast.success(`Added ${eq.name} to workspace`);
-      
+      // Realistic flow: pick → place on bench (no random spawning)
+      toggleEquipment(equipmentId);
+      setPendingPlacement(eq);
+      toast.info(`Selected ${eq.name}. Click on the bench to place it.`);
+
       // Record observation
-      addObservation(`Added ${eq.name} to the workspace`);
+      addObservation(`Picked up ${eq.name} (ready to place on the bench)`);
     }
-  }, [equipment, toggleEquipment, placedEquipment]);
+  }, [equipment, pendingPlacement?.id, placedEquipment, toggleEquipment]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && pendingPlacement) {
+        setPendingPlacement(null);
+        toast.info("Placement cancelled");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [pendingPlacement]);
 
   const handlePositionChange = useCallback((id: string, position: [number, number, number]) => {
     setPlacedEquipment(prev =>
@@ -96,6 +107,7 @@ export function LabWorkspace({
   const clearWorkspace = () => {
     setPlacedEquipment([]);
     clearSelection();
+    setPendingPlacement(null);
     setObservations([]);
     setSimulationData({});
     toast.info("Workspace cleared");
@@ -214,6 +226,31 @@ export function LabWorkspace({
                     <meshStandardMaterial color={0x8B4513} roughness={0.8} />
                   </mesh>
 
+                  {/* Placement plane (only active when user is placing a picked item) */}
+                  {pendingPlacement && (
+                    <mesh
+                      rotation={[-Math.PI / 2, 0, 0]}
+                      position={[0, -0.49, 0]}
+                      onPointerMove={(e: ThreeEvent<PointerEvent>) => {
+                        e.stopPropagation();
+                        const clamp = (v: number) => Math.max(-4.5, Math.min(4.5, v));
+                        setPlacementPreview([clamp(e.point.x), 0, clamp(e.point.z)]);
+                      }}
+                      onClick={(e: ThreeEvent<PointerEvent>) => {
+                        e.stopPropagation();
+                        const clamp = (v: number) => Math.max(-4.5, Math.min(4.5, v));
+                        const finalPos: [number, number, number] = [clamp(e.point.x), 0, clamp(e.point.z)];
+                        setPlacedEquipment((prev) => [...prev, { equipment: pendingPlacement, position: finalPos }]);
+                        setPendingPlacement(null);
+                        toast.success(`Placed ${pendingPlacement.name} on the bench`);
+                        addObservation(`Placed ${pendingPlacement.name} on the bench`);
+                      }}
+                    >
+                      <planeGeometry args={[10, 10]} />
+                      <meshBasicMaterial transparent opacity={0} />
+                    </mesh>
+                  )}
+
                   {/* Grid helper */}
                   <Grid
                     args={[10, 10]}
@@ -239,6 +276,26 @@ export function LabWorkspace({
                       isSelected={selectedItem?.id === item.equipment.id}
                     />
                   ))}
+
+                  {/* Placement preview */}
+                  {pendingPlacement && (
+                    <group position={placementPreview}>
+                      <mesh castShadow>
+                        <cylinderGeometry args={[0.25, 0.25, 0.15, 18]} />
+                        <meshStandardMaterial color={0x22d3ee} transparent opacity={0.35} />
+                      </mesh>
+                      <Html position={[0, 0.45, 0]} center>
+                        <div className="bg-background/95 border border-cyan-400/40 px-3 py-2 rounded-lg shadow-lg backdrop-blur-sm pointer-events-none">
+                          <p className="text-xs font-medium whitespace-nowrap">
+                            Click to place: {pendingPlacement.name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Press Esc to cancel
+                          </p>
+                        </div>
+                      </Html>
+                    </group>
+                  )}
 
                   <OrbitControls
                     enablePan

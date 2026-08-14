@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
-import { Environment, OrbitControls } from "@react-three/drei";
+import { Environment, Html, OrbitControls } from "@react-three/drei";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import * as THREE from "three";
+import { SHOW_3D_TEXT } from "./show3dText";
 import {
   InteractiveBeaker3D,
   InteractiveCylinder3D,
@@ -40,7 +41,8 @@ import {
   InteractiveTestTube3D,
   type ChemicalContent,
 } from "./InteractiveContainer3D";
-import { ChemicalShelf3D, SHELF_CHEMICALS } from "./ChemicalShelf3D";
+import { SHELF_CHEMICALS } from "./ChemicalShelf3D";
+import { LabStorageCabinets3D } from "./LabStorageCabinets3D";
 import {
   RealisticBunsenBurner3D,
   RealisticChemicalBottle3D,
@@ -127,58 +129,223 @@ export interface ChemistryLabSnapshot {
   }>;
 }
 
-const INITIAL_CONTAINERS: LabContainer[] = [
-  {
-    id: "beaker-1",
-    type: "beaker",
-    position: [0, 0, 0],
-    capacity: 500,
-    contents: [],
-    isHeating: false,
-    temperature: 25,
-    label: "Main Beaker",
-  },
-  {
-    id: "flask-1",
-    type: "flask",
-    position: [-1.45, -0.08, 0.45],
-    capacity: 250,
-    contents: [],
-    isHeating: false,
-    temperature: 25,
-    label: "Reaction Flask",
-  },
-  {
-    id: "tube-1",
-    type: "testTube",
-    position: [1.35, 0.2, 0.32],
-    capacity: 25,
-    contents: [],
-    isHeating: false,
-    temperature: 25,
-    label: "Test Tube A",
-  },
-  {
-    id: "tube-2",
-    type: "testTube",
-    position: [1.7, 0.2, 0.32],
-    capacity: 25,
-    contents: [],
-    isHeating: false,
-    temperature: 25,
-    label: "Test Tube B",
-  },
-  {
-    id: "cylinder-1",
-    type: "cylinder",
-    position: [-1.85, 0.08, -0.25],
-    capacity: 100,
-    contents: [],
-    isHeating: false,
-    temperature: 25,
-    label: "Graduated Cylinder",
-  },
-];
+function StorageCabinet3D({
+  position,
+  width = 1.4,
+  height = 1.9,
+  depth = 0.8,
+  title = "Storage cabinet",
+  children,
+}: {
+  position: [number, number, number];
+  width?: number;
+  height?: number;
+  depth?: number;
+  title?: string;
+  children?: ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const leftDoorRef = useRef<THREE.Group>(null);
+  const rightDoorRef = useRef<THREE.Group>(null);
+
+  const OPEN_ANGLE = Math.PI / 2.25;
+  const DAMPING = 10;
+
+  useEffect(() => {
+    return () => {
+      document.body.style.cursor = "auto";
+    };
+  }, []);
+
+  useFrame((_, delta) => {
+    const target = isOpen ? OPEN_ANGLE : 0;
+    if (leftDoorRef.current) {
+      leftDoorRef.current.rotation.y = THREE.MathUtils.damp(
+        leftDoorRef.current.rotation.y,
+        -target,
+        DAMPING,
+        delta,
+      );
+    }
+    if (rightDoorRef.current) {
+      rightDoorRef.current.rotation.y = THREE.MathUtils.damp(
+        rightDoorRef.current.rotation.y,
+        target,
+        DAMPING,
+        delta,
+      );
+    }
+  });
+
+  const WALL_THICKNESS = 0.04;
+  return (
+    <group position={position}>
+      {/* Small interior light so contents are visible */}
+      <pointLight
+        position={[0, height * 0.7, 0]}
+        intensity={0.5}
+        distance={2.2}
+        color="#ffffff"
+      />
+
+      {/* Cabinet frame (open-front) */}
+      <mesh position={[0, height / 2, -depth / 2 + WALL_THICKNESS / 2]} castShadow receiveShadow>
+        <boxGeometry args={[width, height, WALL_THICKNESS]} />
+        <meshStandardMaterial color="#cfd7de" metalness={0.35} roughness={0.52} />
+      </mesh>
+      <mesh position={[-width / 2 + WALL_THICKNESS / 2, height / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[WALL_THICKNESS, height, depth]} />
+        <meshStandardMaterial color="#cfd7de" metalness={0.35} roughness={0.52} />
+      </mesh>
+      <mesh position={[width / 2 - WALL_THICKNESS / 2, height / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[WALL_THICKNESS, height, depth]} />
+        <meshStandardMaterial color="#cfd7de" metalness={0.35} roughness={0.52} />
+      </mesh>
+      <mesh position={[0, height - WALL_THICKNESS / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[width, WALL_THICKNESS, depth]} />
+        <meshStandardMaterial color="#cfd7de" metalness={0.35} roughness={0.52} />
+      </mesh>
+      <mesh position={[0, WALL_THICKNESS / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[width, WALL_THICKNESS, depth]} />
+        <meshStandardMaterial color="#cfd7de" metalness={0.35} roughness={0.52} />
+      </mesh>
+
+      {/* Top cap */}
+      <mesh position={[0, height + 0.02, 0]} castShadow receiveShadow>
+        <boxGeometry args={[width + 0.08, 0.06, depth + 0.08]} />
+        <meshStandardMaterial color="#b9c3cb" roughness={0.55} metalness={0.25} />
+      </mesh>
+
+      {/* Open click target */}
+      {!isOpen && (
+        <mesh
+          position={[0, height / 2, depth / 2 + 0.03]}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(true);
+          }}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            document.body.style.cursor = "pointer";
+          }}
+          onPointerOut={(e) => {
+            e.stopPropagation();
+            document.body.style.cursor = "auto";
+          }}
+        >
+          <boxGeometry args={[width * 0.98, height * 0.9, 0.12]} />
+          <meshBasicMaterial transparent opacity={0} />
+        </mesh>
+      )}
+
+      {/* Close target */}
+      {isOpen && (
+        <mesh
+          position={[0, height - 0.35, depth / 2 + 0.03]}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(false);
+          }}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            document.body.style.cursor = "pointer";
+          }}
+          onPointerOut={(e) => {
+            e.stopPropagation();
+            document.body.style.cursor = "auto";
+          }}
+        >
+          <boxGeometry args={[width * 0.9, 0.28, 0.12]} />
+          <meshBasicMaterial transparent opacity={0} />
+        </mesh>
+      )}
+
+      {/* Doors */}
+      <group position={[-width * 0.49, height / 2, depth / 2 - 0.02]}>
+        <group ref={leftDoorRef}>
+          <mesh position={[width * 0.24, 0, 0]} raycast={() => null}>
+            <boxGeometry args={[width * 0.48, height * 0.88, 0.02]} />
+            <meshPhysicalMaterial
+              color="#dbeafe"
+              transparent
+              opacity={0.14}
+              transmission={0.92}
+              roughness={0.08}
+            />
+          </mesh>
+          <mesh
+            position={[width * 0.45, 0, 0.012]}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen((v) => !v);
+            }}
+          >
+            <cylinderGeometry args={[0.018, 0.018, 0.16, 14]} />
+            <meshStandardMaterial color="#64748b" metalness={0.8} roughness={0.22} />
+          </mesh>
+        </group>
+      </group>
+      <group position={[width * 0.49, height / 2, depth / 2 - 0.02]}>
+        <group ref={rightDoorRef}>
+          <mesh position={[-width * 0.24, 0, 0]} raycast={() => null}>
+            <boxGeometry args={[width * 0.48, height * 0.88, 0.02]} />
+            <meshPhysicalMaterial
+              color="#dbeafe"
+              transparent
+              opacity={0.14}
+              transmission={0.92}
+              roughness={0.08}
+            />
+          </mesh>
+          <mesh
+            position={[-width * 0.45, 0, 0.012]}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen((v) => !v);
+            }}
+          >
+            <cylinderGeometry args={[0.018, 0.018, 0.16, 14]} />
+            <meshStandardMaterial color="#64748b" metalness={0.8} roughness={0.22} />
+          </mesh>
+        </group>
+      </group>
+
+      {/* Contents (only render when open for performance + to avoid door occlusion) */}
+      {isOpen && (
+        <group position={[0, 0, -depth * 0.12]}>
+          {/* Simple internal shelves */}
+          {[0.45, 1.05, 1.55].filter((y) => y < height - 0.12).map((y) => (
+            <mesh key={y} position={[0, y, -depth * 0.18]} castShadow receiveShadow>
+              <boxGeometry args={[width * 0.92, 0.045, depth * 0.72]} />
+              <meshStandardMaterial color="#e2e8f0" roughness={0.75} metalness={0.15} />
+            </mesh>
+          ))}
+
+          {children}
+        </group>
+      )}
+
+      {SHOW_3D_TEXT && (
+        <Html
+          transform
+          position={[0, height + 0.12, 0]}
+          center
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="rounded-md border border-slate-200/70 bg-white/90 px-3 py-1 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700">
+              {title}
+            </p>
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+// Bench starts empty for realism: users pick glassware from cupboards.
+// Missions/presets will ensure required vessels exist.
+const INITIAL_CONTAINERS: LabContainer[] = [];
 
 const INITIAL_BENCH_EQUIPMENT: BenchEquipmentItem[] = [
   {
@@ -187,7 +354,7 @@ const INITIAL_BENCH_EQUIPMENT: BenchEquipmentItem[] = [
     label: "Wash Bottle",
     position: [-2.35, -0.5, 1.02],
     defaultPosition: [-2.35, -0.5, 1.02],
-    visible: true,
+    visible: false,
   },
   {
     id: "retort-stand",
@@ -195,7 +362,7 @@ const INITIAL_BENCH_EQUIPMENT: BenchEquipmentItem[] = [
     label: "Retort Stand",
     position: [2.32, -0.68, 0.56],
     defaultPosition: [2.32, -0.68, 0.56],
-    visible: true,
+    visible: false,
   },
   {
     id: "digital-balance",
@@ -203,7 +370,7 @@ const INITIAL_BENCH_EQUIPMENT: BenchEquipmentItem[] = [
     label: "Digital Balance",
     position: [2.08, -0.59, 1.08],
     defaultPosition: [2.08, -0.59, 1.08],
-    visible: true,
+    visible: false,
   },
   {
     id: "tube-rack",
@@ -211,7 +378,7 @@ const INITIAL_BENCH_EQUIPMENT: BenchEquipmentItem[] = [
     label: "Tube Rack",
     position: [1.28, -0.62, 1.06],
     defaultPosition: [1.28, -0.62, 1.06],
-    visible: true,
+    visible: false,
   },
   {
     id: "ph-meter",
@@ -219,7 +386,7 @@ const INITIAL_BENCH_EQUIPMENT: BenchEquipmentItem[] = [
     label: "pH Meter",
     position: [-1.64, -0.28, 1.08],
     defaultPosition: [-1.64, -0.28, 1.08],
-    visible: true,
+    visible: false,
   },
   {
     id: "thermometer",
@@ -227,7 +394,7 @@ const INITIAL_BENCH_EQUIPMENT: BenchEquipmentItem[] = [
     label: "Thermometer",
     position: [-0.66, -0.3, 1.22],
     defaultPosition: [-0.66, -0.3, 1.22],
-    visible: true,
+    visible: false,
   },
 ];
 
@@ -300,6 +467,8 @@ const DEMO_PRESETS: DemoPreset[] = [
       "Zinc replaces hydrogen from hydrochloric acid, producing zinc chloride and hydrogen gas. The bubbles are direct evidence of product formation.",
   },
 ];
+
+const NO_SELECTION_VALUE = "__none__";
 
 const QUICK_REACTIONS = [
   "2Na + 2H₂O → 2NaOH + H₂↑",
@@ -972,13 +1141,13 @@ export function InteractiveChemistryLab({
 }: InteractiveChemistryLabProps = {}) {
   const [containers, setContainers] = useState<LabContainer[]>(INITIAL_CONTAINERS);
   const [benchEquipment, setBenchEquipment] = useState<BenchEquipmentItem[]>(INITIAL_BENCH_EQUIPMENT);
-  const [selectedContainerId, setSelectedContainerId] = useState<string>("beaker-1");
+  const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
   const [selectedChemical, setSelectedChemical] = useState<ChemicalContent | null>(null);
   const [draggingChemical, setDraggingChemical] = useState<ChemicalContent | null>(null);
   const [hoveredContainerId, setHoveredContainerId] = useState<string | null>(null);
   const [pourAmount, setPourAmount] = useState(25);
   const [transferAmount, setTransferAmount] = useState(15);
-  const [transferSourceId, setTransferSourceId] = useState("cylinder-1");
+  const [transferSourceId, setTransferSourceId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [observations, setObservations] = useState<string[]>([
     "Welcome to the chemistry laboratory. Select a mission or start building your own experiment.",
@@ -988,6 +1157,24 @@ export function InteractiveChemistryLab({
   >([]);
   const [showNotebook, setShowNotebook] = useState(false);
   const [activeDemo, setActiveDemo] = useState<DemoPreset["id"]>("neutralization");
+  const [pendingGlasswareType, setPendingGlasswareType] = useState<LabContainer["type"] | null>(
+    null,
+  );
+  const [pendingBenchToolId, setPendingBenchToolId] = useState<string | null>(null);
+  const [benchToolPreviewPosition, setBenchToolPreviewPosition] = useState<[number, number, number]>([
+    0,
+    0,
+    0,
+  ]);
+  const [glasswarePreviewPosition, setGlasswarePreviewPosition] = useState<
+    [number, number, number]
+  >([0, 0, 0]);
+  const glasswareCounterRef = useRef({
+    beaker: 2,
+    flask: 2,
+    testTube: 3,
+    cylinder: 2,
+  });
 
   const {
     playBubbling,
@@ -1000,13 +1187,31 @@ export function InteractiveChemistryLab({
     playWarningAlarm,
   } = useLabSounds();
 
-  const selectedContainer = containers.find((container) => container.id === selectedContainerId);
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && pendingGlasswareType) {
+        setPendingGlasswareType(null);
+        toast.info("Glassware placement cancelled.");
+      }
+      if (e.key === "Escape" && pendingBenchToolId) {
+        setPendingBenchToolId(null);
+        toast.info("Tool placement cancelled.");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [pendingBenchToolId, pendingGlasswareType]);
+
+  const selectedContainer = selectedContainerId
+    ? containers.find((container) => container.id === selectedContainerId)
+    : undefined;
   const activeDemoPreset = DEMO_PRESETS.find((demo) => demo.id === activeDemo) ?? DEMO_PRESETS[0];
   const selectedChemicalMeta = selectedChemical ? SHELF_CHEMICALS[selectedChemical.id] : null;
   const averagePH = selectedContainer ? getAveragePH(selectedContainer.contents) : null;
-  const activeSelectedReaction = reactionEffects.find(
-    (effect) => effect.containerId === selectedContainerId,
-  );
+  const activeSelectedReaction = selectedContainerId
+    ? reactionEffects.find((effect) => effect.containerId === selectedContainerId)
+    : undefined;
   const targetContainer = containers.find(
     (container) => container.id === activeDemoPreset.targetContainerId,
   );
@@ -1032,9 +1237,7 @@ export function InteractiveChemistryLab({
         entry.includes("bubbling"),
     );
     const hasReaction = Boolean(targetReaction);
-    const hasHeatOrProcedure = demoContainer
-      ? demoContainer.temperature > 30 || demoContainer.isHeating
-      : false;
+    const hasHeatOrProcedure = demoContainer ? demoContainer.temperature > 30 || demoContainer.isHeating : false;
 
     return [
       {
@@ -1217,8 +1420,8 @@ export function InteractiveChemistryLab({
     setReactionEffects([]);
     setSelectedChemical(null);
     setDraggingChemical(null);
-    setSelectedContainerId("beaker-1");
-    setTransferSourceId("cylinder-1");
+    setSelectedContainerId(null);
+    setTransferSourceId(null);
     setObservations(
       message
         ? [message]
@@ -1287,6 +1490,142 @@ export function InteractiveChemistryLab({
     toast.info(`Selected ${chemical.name}.`);
   }, []);
 
+  const getGlasswareDefaults = useCallback((kind: LabContainer["type"]) => {
+    switch (kind) {
+      case "beaker":
+        return { capacity: 500, baseY: 0, labelPrefix: "Beaker" };
+      case "flask":
+        return { capacity: 250, baseY: -0.08, labelPrefix: "Flask" };
+      case "testTube":
+        return { capacity: 25, baseY: 0.2, labelPrefix: "Test Tube" };
+      case "cylinder":
+        return { capacity: 100, baseY: 0.08, labelPrefix: "Cylinder" };
+      default:
+        return { capacity: 250, baseY: 0, labelPrefix: "Glassware" };
+    }
+  }, []);
+
+  const ensureMissionContainer = useCallback((containerId: string) => {
+    setContainers((current) => {
+      if (current.some((container) => container.id === containerId)) {
+        return current;
+      }
+
+      const missionContainerMap: Record<string, LabContainer> = {
+        "beaker-1": {
+          id: "beaker-1",
+          type: "beaker",
+          position: [0, 0, 0],
+          capacity: 500,
+          contents: [],
+          isHeating: false,
+          temperature: 25,
+          label: "Main Beaker",
+        },
+        "flask-1": {
+          id: "flask-1",
+          type: "flask",
+          position: [-1.45, -0.08, 0.45],
+          capacity: 250,
+          contents: [],
+          isHeating: false,
+          temperature: 25,
+          label: "Reaction Flask",
+        },
+        "tube-1": {
+          id: "tube-1",
+          type: "testTube",
+          position: [1.35, 0.2, 0.32],
+          capacity: 25,
+          contents: [],
+          isHeating: false,
+          temperature: 25,
+          label: "Test Tube A",
+        },
+      };
+
+      return missionContainerMap[containerId]
+        ? [...current, missionContainerMap[containerId]]
+        : current;
+    });
+  }, []);
+
+  const handlePickGlassware = useCallback(
+    (kind: LabContainer["type"]) => {
+      setPendingBenchToolId(null);
+      setPendingGlasswareType(kind);
+      toast.info(`Picked ${kind}. Click on the bench to place it.`);
+      registerObservation(`Picked ${kind} from the glassware cupboard.`);
+    },
+    [registerObservation],
+  );
+
+  const handlePickBenchTool = useCallback(
+    (kind: BenchEquipmentKind) => {
+      const tool = benchEquipment.find((item) => item.kind === kind);
+      if (!tool) return;
+      setPendingGlasswareType(null);
+      setPendingBenchToolId(tool.id);
+      setBenchToolPreviewPosition([0, tool.position[1], 0]);
+      toast.info(`Picked ${tool.label}. Click on the bench to place it.`);
+      registerObservation(`Picked ${tool.label} from the tools cupboard.`);
+    },
+    [benchEquipment, registerObservation],
+  );
+
+  const placePickedBenchTool = useCallback(
+    (position: [number, number, number]) => {
+      if (!pendingBenchToolId) return;
+      setBenchEquipment((current) =>
+        current.map((item) => {
+          if (item.id !== pendingBenchToolId) return item;
+          return {
+            ...item,
+            visible: true,
+            position: [position[0], item.position[1], position[2]],
+          };
+        }),
+      );
+      setPendingBenchToolId(null);
+      toast.success("Tool placed on the bench");
+      registerObservation("Placed a tool on the bench from storage.");
+    },
+    [pendingBenchToolId, registerObservation],
+  );
+
+  const placePickedGlassware = useCallback(
+    (position: [number, number, number]) => {
+      if (!pendingGlasswareType) return;
+
+      const defaults = getGlasswareDefaults(pendingGlasswareType);
+      const nextIndex = glasswareCounterRef.current[pendingGlasswareType];
+      glasswareCounterRef.current[pendingGlasswareType] += 1;
+
+      const id =
+        pendingGlasswareType === "testTube"
+          ? `tube-${nextIndex}`
+          : `${pendingGlasswareType}-${nextIndex}`;
+
+      const newContainer: LabContainer = {
+        id,
+        type: pendingGlasswareType,
+        position: [position[0], defaults.baseY, position[2]],
+        capacity: defaults.capacity,
+        contents: [],
+        isHeating: false,
+        temperature: 25,
+        label: `${defaults.labelPrefix} ${nextIndex}`,
+      };
+
+      setContainers((current) => [...current, newContainer]);
+      setSelectedContainerId(id);
+      setPendingGlasswareType(null);
+      toast.success(`${newContainer.label} placed on the bench`);
+      registerObservation(`${newContainer.label} placed on the bench.`);
+    },
+    [getGlasswareDefaults, pendingGlasswareType, registerObservation],
+  );
+
   const handleSelectContainer = useCallback((containerId: string) => {
     if (suppressNextSelectRef.current) {
       suppressNextSelectRef.current = false;
@@ -1306,6 +1645,7 @@ export function InteractiveChemistryLab({
   const resetBenchLayout = useCallback(() => {
     setContainers(INITIAL_CONTAINERS);
     setBenchEquipment(INITIAL_BENCH_EQUIPMENT);
+    setSelectedContainerId(null);
     registerObservation("Bench layout restored to a standard laboratory arrangement.");
     toast.success("Bench layout restored.");
   }, [registerObservation]);
@@ -1443,11 +1783,12 @@ export function InteractiveChemistryLab({
   const runDemoPreset = useCallback(
     (preset: DemoPreset) => {
       resetLab(`Mission loaded: ${preset.title}. ${preset.objective}`);
+      ensureMissionContainer(preset.targetContainerId);
       setActiveDemo(preset.id);
       setSelectedContainerId(preset.targetContainerId);
       setShowNotebook(true);
       setPourAmount(25);
-      setTransferSourceId("cylinder-1");
+      setTransferSourceId(preset.targetContainerId);
 
       preset.chemicals.forEach((step, index) => {
         window.setTimeout(() => {
@@ -1463,7 +1804,14 @@ export function InteractiveChemistryLab({
         if (soundEnabled) playSuccess();
       }, preset.chemicals.length * 950 + 500);
     },
-    [addChemicalToContainerInternal, playSuccess, registerObservation, resetLab, soundEnabled],
+    [
+      addChemicalToContainerInternal,
+      ensureMissionContainer,
+      playSuccess,
+      registerObservation,
+      resetLab,
+      soundEnabled,
+    ],
   );
 
   useEffect(() => {
@@ -1523,6 +1871,16 @@ export function InteractiveChemistryLab({
     selectedChemical,
     selectedContainer,
   ]);
+
+  useEffect(() => {
+    if (containers.length === 0) {
+      if (transferSourceId) setTransferSourceId(null);
+      return;
+    }
+    if (!transferSourceId || !containers.some((container) => container.id === transferSourceId)) {
+      setTransferSourceId(containers[0].id);
+    }
+  }, [containers, transferSourceId]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,#f8fbfd_0%,#eef4f7_100%)]">
@@ -1720,11 +2078,17 @@ export function InteractiveChemistryLab({
 
               <div className="space-y-2">
                 <label className="text-xs text-slate-500">Target vessel</label>
-                <Select value={selectedContainerId} onValueChange={setSelectedContainerId}>
+                <Select
+                  value={selectedContainerId ?? NO_SELECTION_VALUE}
+                  onValueChange={(value) =>
+                    setSelectedContainerId(value === NO_SELECTION_VALUE ? null : value)
+                  }
+                >
                   <SelectTrigger className="border-slate-300 bg-white text-slate-900">
-                    <SelectValue />
+                    <SelectValue placeholder="No vessel selected" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={NO_SELECTION_VALUE}>No vessel selected</SelectItem>
                     {containers.map((container) => (
                       <SelectItem key={container.id} value={container.id}>
                         {container.label}
@@ -1737,7 +2101,7 @@ export function InteractiveChemistryLab({
               <div className="grid gap-2">
                 <Button
                   onClick={addChemicalToContainer}
-                  disabled={!selectedChemical}
+                  disabled={!selectedChemical || !selectedContainerId}
                   className="bg-sky-600 text-white hover:bg-sky-700"
                 >
                   <Plus className="mr-2 h-4 w-4" />
@@ -1778,11 +2142,17 @@ export function InteractiveChemistryLab({
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <label className="text-xs text-slate-500">Source vessel</label>
-                <Select value={transferSourceId} onValueChange={setTransferSourceId}>
+                <Select
+                  value={transferSourceId ?? NO_SELECTION_VALUE}
+                  onValueChange={(value) =>
+                    setTransferSourceId(value === NO_SELECTION_VALUE ? null : value)
+                  }
+                >
                   <SelectTrigger className="border-slate-300 bg-white text-slate-900">
-                    <SelectValue />
+                    <SelectValue placeholder="No source selected" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={NO_SELECTION_VALUE}>No source selected</SelectItem>
                     {containers.map((container) => (
                       <SelectItem key={container.id} value={container.id}>
                         {container.label}
@@ -1809,13 +2179,14 @@ export function InteractiveChemistryLab({
               <Button
                 onClick={transferBetweenContainers}
                 variant="outline"
+                disabled={!transferSourceId || !selectedContainerId || containers.length < 2}
                 className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50"
               >
                 <Move3D className="mr-2 h-4 w-4" />
                 Transfer into selected vessel
               </Button>
               <p className="text-xs leading-relaxed text-slate-500">
-                Drag any visible vessel or bench tool to place it anywhere on the worktable.
+                Keep the main work area clear, then drag any taken-out vessel or tool to the exact place you want on the bench.
               </p>
             </CardContent>
           </Card>
@@ -1829,7 +2200,7 @@ export function InteractiveChemistryLab({
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs leading-relaxed text-slate-600">
-                Choose the equipment you want to keep on the bench, then reposition it to match a normal laboratory setup.
+                Take equipment out from side storage only when needed, then return the bench to a clean real-laboratory layout.
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {benchEquipment.map((equipment) => (
@@ -1844,7 +2215,7 @@ export function InteractiveChemistryLab({
                   >
                     <div className="font-semibold">{equipment.label}</div>
                     <div className="mt-1 text-[11px]">
-                      {equipment.visible ? "Visible on bench" : "Hidden from bench"}
+                      {equipment.visible ? "Taken out to bench" : "Stored in cupboard"}
                     </div>
                   </button>
                 ))}
@@ -1968,40 +2339,375 @@ export function InteractiveChemistryLab({
               ))}
             </group>
 
-            <group position={[3.45, -0.4, -0.95]}>
-              <mesh>
-                <boxGeometry args={[1.1, 1.6, 1]} />
-                <meshStandardMaterial color="#cfd7de" metalness={0.4} roughness={0.45} />
+            {/* Glassware placement plane (active only when user picked glassware from cupboard) */}
+            {pendingGlasswareType && (
+              <mesh
+                rotation={[-Math.PI / 2, 0, 0]}
+                position={[0, 0, 0]}
+                onPointerMove={(e) => {
+                  e.stopPropagation();
+                  const clampX = THREE.MathUtils.clamp(e.point.x, -2.6, 2.6);
+                  const clampZ = THREE.MathUtils.clamp(e.point.z, -1.35, 1.35);
+                  const defaults = getGlasswareDefaults(pendingGlasswareType);
+                  setGlasswarePreviewPosition([clampX, defaults.baseY, clampZ]);
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const clampX = THREE.MathUtils.clamp(e.point.x, -2.6, 2.6);
+                  const clampZ = THREE.MathUtils.clamp(e.point.z, -1.35, 1.35);
+                  placePickedGlassware([clampX, 0, clampZ]);
+                }}
+              >
+                <planeGeometry args={[6.2, 3.7]} />
+                <meshBasicMaterial transparent opacity={0} />
               </mesh>
-              <mesh position={[0, 0.05, 0.44]}>
-                <boxGeometry args={[0.95, 1.45, 0.03]} />
-                <meshPhysicalMaterial color="#dbeafe" transparent opacity={0.12} transmission={0.95} />
-              </mesh>
-            </group>
+            )}
 
-            <group position={[-4.05, -0.2, -0.8]}>
-              <mesh position={[0, 0.8, 0]}>
-                <boxGeometry args={[0.9, 1.8, 0.9]} />
-                <meshStandardMaterial color="#d7dde2" />
+            {/* Bench tool placement plane (active only when user picked a tool from cupboards) */}
+            {pendingBenchToolId && (
+              <mesh
+                rotation={[-Math.PI / 2, 0, 0]}
+                position={[0, 0, 0]}
+                onPointerMove={(e) => {
+                  e.stopPropagation();
+                  const clampX = THREE.MathUtils.clamp(e.point.x, -2.6, 2.6);
+                  const clampZ = THREE.MathUtils.clamp(e.point.z, -1.35, 1.35);
+                  const tool = benchEquipment.find((item) => item.id === pendingBenchToolId);
+                  const baseY = tool?.position[1] ?? -0.5;
+                  setBenchToolPreviewPosition([clampX, baseY, clampZ]);
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const clampX = THREE.MathUtils.clamp(e.point.x, -2.6, 2.6);
+                  const clampZ = THREE.MathUtils.clamp(e.point.z, -1.35, 1.35);
+                  placePickedBenchTool([clampX, 0, clampZ]);
+                }}
+              >
+                <planeGeometry args={[6.2, 3.7]} />
+                <meshBasicMaterial transparent opacity={0} />
               </mesh>
-              <mesh position={[0.2, 1.45, 0.45]}>
-                <cylinderGeometry args={[0.08, 0.08, 0.45, 20]} />
-                <meshStandardMaterial color="#8fb9cf" metalness={0.7} roughness={0.3} />
-              </mesh>
-              <mesh position={[-0.15, 1.1, 0.45]} rotation={[0, 0, Math.PI / 2]}>
-                <cylinderGeometry args={[0.05, 0.05, 0.45, 20]} />
-                <meshStandardMaterial color="#e2e8f0" metalness={0.6} roughness={0.2} />
-              </mesh>
-            </group>
+            )}
 
-            <group position={[0, 0.3, -1.52]}>
-              <ChemicalShelf3D
+            {pendingBenchToolId && (
+              <group position={benchToolPreviewPosition}>
+                <mesh castShadow>
+                  <cylinderGeometry args={[0.18, 0.18, 0.06, 14]} />
+                  <meshStandardMaterial color="#a78bfa" transparent opacity={0.35} />
+                </mesh>
+                {SHOW_3D_TEXT && (
+                  <Html position={[0, 0.35, 0]} center>
+                    <div className="bg-slate-900/90 border border-violet-400/40 px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md pointer-events-none min-w-[160px]">
+                      <p className="text-xs font-semibold text-violet-100 whitespace-nowrap">
+                        Click to place tool
+                      </p>
+                      <p className="text-[10px] text-slate-300 mt-0.5 whitespace-nowrap">
+                        Press Esc to cancel
+                      </p>
+                    </div>
+                  </Html>
+                )}
+              </group>
+            )}
+
+            {pendingGlasswareType && (
+              <group position={glasswarePreviewPosition}>
+                <mesh castShadow>
+                  <cylinderGeometry args={[0.22, 0.22, 0.08, 16]} />
+                  <meshStandardMaterial color="#22d3ee" transparent opacity={0.32} />
+                </mesh>
+                {SHOW_3D_TEXT && (
+                  <Html position={[0, 0.35, 0]} center>
+                    <div className="bg-slate-900/90 border border-cyan-400/40 px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md pointer-events-none min-w-[150px]">
+                      <p className="text-xs font-semibold text-cyan-100 whitespace-nowrap">
+                        Click to place: {pendingGlasswareType}
+                      </p>
+                      <p className="text-[10px] text-slate-300 mt-0.5 whitespace-nowrap">
+                        Press Esc to cancel
+                      </p>
+                    </div>
+                  </Html>
+                )}
+              </group>
+            )}
+
+            <StorageCabinet3D
+              position={[3.45, -0.4, -1.1]}
+              width={1.15}
+              height={1.65}
+              depth={1.02}
+              title="Glassware storage"
+            >
+              <group position={[0, 0.25, 0]}>
+                {/* Simple pickable glassware shapes */}
+                <group position={[-0.32, 0.45, 0.14]}>
+                  <mesh
+                    castShadow
+                    receiveShadow
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePickGlassware("beaker");
+                    }}
+                    onPointerOver={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = "pointer";
+                    }}
+                    onPointerOut={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = "auto";
+                    }}
+                  >
+                    <cylinderGeometry args={[0.08, 0.07, 0.14, 18, 1, true]} />
+                    <meshPhysicalMaterial
+                      color="#eaf6ff"
+                      transparent
+                      opacity={0.14}
+                      transmission={0.95}
+                      roughness={0.03}
+                      thickness={1}
+                      ior={1.52}
+                    />
+                  </mesh>
+                </group>
+                <group position={[0.0, 0.45, 0.14]}>
+                  <group
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePickGlassware("flask");
+                    }}
+                    onPointerOver={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = "pointer";
+                    }}
+                    onPointerOut={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = "auto";
+                    }}
+                  >
+                    <mesh castShadow receiveShadow position={[0, -0.02, 0]}>
+                      <sphereGeometry args={[0.075, 16, 12]} />
+                      <meshPhysicalMaterial
+                        color="#eaf6ff"
+                        transparent
+                        opacity={0.14}
+                        transmission={0.95}
+                        roughness={0.03}
+                        thickness={1}
+                        ior={1.52}
+                      />
+                    </mesh>
+                    <mesh castShadow receiveShadow position={[0, 0.08, 0]}>
+                      <cylinderGeometry args={[0.025, 0.03, 0.12, 14]} />
+                      <meshPhysicalMaterial
+                        color="#eaf6ff"
+                        transparent
+                        opacity={0.14}
+                        transmission={0.95}
+                        roughness={0.03}
+                        thickness={1}
+                        ior={1.52}
+                      />
+                    </mesh>
+                  </group>
+                </group>
+                <group position={[0.32, 0.45, 0.14]}>
+                  <group
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePickGlassware("testTube");
+                    }}
+                    onPointerOver={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = "pointer";
+                    }}
+                    onPointerOut={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = "auto";
+                    }}
+                  >
+                    <mesh castShadow receiveShadow>
+                      <cylinderGeometry args={[0.025, 0.025, 0.18, 14, 1, true]} />
+                      <meshPhysicalMaterial
+                        color="#eaf6ff"
+                        transparent
+                        opacity={0.14}
+                        transmission={0.95}
+                        roughness={0.03}
+                        thickness={1}
+                        ior={1.52}
+                      />
+                    </mesh>
+                    <mesh castShadow receiveShadow position={[0, -0.09, 0]}>
+                      <sphereGeometry args={[0.025, 12, 10]} />
+                      <meshPhysicalMaterial
+                        color="#eaf6ff"
+                        transparent
+                        opacity={0.14}
+                        transmission={0.95}
+                        roughness={0.03}
+                        thickness={1}
+                        ior={1.52}
+                      />
+                    </mesh>
+                  </group>
+                </group>
+
+                <group position={[0, 1.06, 0.14]}>
+                  <group
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePickGlassware("cylinder");
+                    }}
+                    onPointerOver={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = "pointer";
+                    }}
+                    onPointerOut={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = "auto";
+                    }}
+                  >
+                    <mesh castShadow receiveShadow>
+                      <cylinderGeometry args={[0.04, 0.045, 0.2, 16, 1, true]} />
+                      <meshPhysicalMaterial
+                        color="#eaf6ff"
+                        transparent
+                        opacity={0.14}
+                        transmission={0.95}
+                        roughness={0.03}
+                        thickness={1}
+                        ior={1.52}
+                      />
+                    </mesh>
+                    <mesh castShadow receiveShadow position={[0, -0.12, 0]}>
+                      <cylinderGeometry args={[0.06, 0.06, 0.02, 16]} />
+                      <meshStandardMaterial color="#dce7ef" roughness={0.35} metalness={0.15} />
+                    </mesh>
+                  </group>
+                </group>
+              </group>
+            </StorageCabinet3D>
+
+            <StorageCabinet3D
+              position={[-4.05, -0.2, -0.8]}
+              width={0.95}
+              height={1.8}
+              depth={0.9}
+              title="Tools & meters"
+            >
+              <group position={[0, 0.25, 0.12]}>
+                {(
+                  [
+                    { kind: "phMeter", x: -0.22, y: 0.45, color: "#38bdf8" },
+                    { kind: "thermometer", x: 0.18, y: 0.45, color: "#ef4444" },
+                    { kind: "tubeRack", x: -0.22, y: 1.05, color: "#a16207" },
+                    { kind: "washBottle", x: 0.18, y: 1.05, color: "#60a5fa" },
+                  ] as const
+                ).map((tool) => (
+                  <mesh
+                    key={tool.kind}
+                    position={[tool.x, tool.y, 0]}
+                    castShadow
+                    receiveShadow
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePickBenchTool(tool.kind);
+                    }}
+                    onPointerOver={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = "pointer";
+                    }}
+                    onPointerOut={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = "auto";
+                    }}
+                  >
+                    <boxGeometry args={[0.16, 0.1, 0.12]} />
+                    <meshStandardMaterial color={tool.color} roughness={0.35} metalness={0.2} />
+                  </mesh>
+                ))}
+              </group>
+            </StorageCabinet3D>
+
+            <StorageCabinet3D
+              position={[-4.25, -0.72, 1.1]}
+              width={1.15}
+              height={1.55}
+              depth={0.86}
+              title="Reagents & consumables"
+            >
+              {/* Visual-only items (real lab look) */}
+              <group position={[0, 0.25, 0.12]}>
+                {[
+                  { x: -0.32, y: 0.45, color: "#22c55e" },
+                  { x: -0.06, y: 0.45, color: "#f59e0b" },
+                  { x: 0.2, y: 0.45, color: "#3b82f6" },
+                ].map((bottle, i) => (
+                  <group key={i} position={[bottle.x, bottle.y, 0]}>
+                    <mesh castShadow receiveShadow>
+                      <cylinderGeometry args={[0.06, 0.07, 0.18, 16]} />
+                      <meshPhysicalMaterial
+                        color="#eef8ff"
+                        transparent
+                        opacity={0.14}
+                        transmission={0.92}
+                        roughness={0.06}
+                        thickness={0.5}
+                        ior={1.5}
+                      />
+                    </mesh>
+                    <mesh position={[0, -0.02, 0]}>
+                      <cylinderGeometry args={[0.05, 0.06, 0.09, 16]} />
+                      <meshStandardMaterial color={bottle.color} roughness={0.2} metalness={0.05} />
+                    </mesh>
+                    <mesh position={[0, 0.12, 0]}>
+                      <cylinderGeometry args={[0.055, 0.06, 0.06, 16]} />
+                      <meshStandardMaterial color="#64748b" metalness={0.7} roughness={0.25} />
+                    </mesh>
+                  </group>
+                ))}
+                <mesh position={[0, 1.05, 0]} castShadow receiveShadow>
+                  <boxGeometry args={[0.52, 0.12, 0.28]} />
+                  <meshStandardMaterial color="#e2e8f0" roughness={0.9} />
+                </mesh>
+              </group>
+            </StorageCabinet3D>
+
+            <StorageCabinet3D
+              position={[4.25, -0.72, 1.1]}
+              width={1.15}
+              height={1.55}
+              depth={0.86}
+              title="Safety kit"
+            >
+              <group position={[0, 0.25, 0.12]}>
+                {/* Goggles */}
+                <mesh position={[-0.25, 0.45, 0]} castShadow receiveShadow>
+                  <torusGeometry args={[0.09, 0.02, 10, 22]} />
+                  <meshStandardMaterial color="#0f172a" roughness={0.35} metalness={0.1} />
+                </mesh>
+                {/* Gloves box */}
+                <mesh position={[0.18, 0.45, 0]} castShadow receiveShadow>
+                  <boxGeometry args={[0.24, 0.12, 0.18]} />
+                  <meshStandardMaterial color="#a5b4fc" roughness={0.8} />
+                </mesh>
+                {/* Waste container */}
+                <mesh position={[0, 1.05, 0]} castShadow receiveShadow>
+                  <cylinderGeometry args={[0.12, 0.14, 0.22, 18]} />
+                  <meshStandardMaterial color="#94a3b8" roughness={0.65} metalness={0.25} />
+                </mesh>
+              </group>
+            </StorageCabinet3D>
+
+            <group position={[0, 0.25, -1.62]}>
+              <LabStorageCabinets3D
                 position={[0, 0, 0]}
                 onSelectChemical={handleChemicalSelect}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 selectedChemicalId={selectedChemical?.id}
                 draggingChemicalId={draggingChemical?.id}
+                onPickGlassware={handlePickGlassware}
+                onPickBenchTool={handlePickBenchTool}
               />
             </group>
 
@@ -2059,30 +2765,6 @@ export function InteractiveChemistryLab({
                   )}
                 </group>
               ))}
-            <group position={[-2.68, -0.52, -0.72]}>
-              <RealisticChemicalBottle3D
-                position={[0, 0, 0]}
-                chemicalName="Nitric Acid"
-                chemicalColor="#fff0a8"
-                hazardLevel="extreme"
-                fillLevel={0.68}
-              />
-              <RealisticChemicalBottle3D
-                position={[0.34, 0, 0.02]}
-                chemicalName="Phosphoric Acid"
-                chemicalColor="#f9ebb5"
-                hazardLevel="high"
-                fillLevel={0.64}
-              />
-              <RealisticChemicalBottle3D
-                position={[0.68, 0, 0]}
-                chemicalName="Ethanol"
-                chemicalColor="#dff7ff"
-                hazardLevel="medium"
-                fillLevel={0.72}
-              />
-            </group>
-
             {containers.map((container) => {
               const activeReaction = reactionEffects.find((item) => item.containerId === container.id);
               const isDropTarget = Boolean(draggingChemical && hoveredContainerId === container.id);

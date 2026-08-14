@@ -4,6 +4,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { ChemicalContent } from "./InteractiveContainer3D";
+import { SHOW_3D_TEXT } from "./show3dText";
 
 // Available chemicals for the shelf
 export const SHELF_CHEMICALS: Record<string, ChemicalContent & { formula: string; hazardLevel: 'safe' | 'caution' | 'danger' | 'extreme' }> = {
@@ -456,7 +457,7 @@ function ChemicalBottle({ chemical, position, onSelect, onDragStart, onDragEnd, 
       </mesh>
 
       {/* Label */}
-      {(hovered || isSelected) && (
+      {SHOW_3D_TEXT && (hovered || isSelected) && (
         <Html position={[0, 0.5, 0]} center>
           <div className={`bg-slate-900/95 border px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md min-w-[140px] ${
             chemical.hazardLevel === 'extreme' ? 'border-red-500' :
@@ -552,13 +553,6 @@ export function ChemicalShelf3D({ position, onSelectChemical, onDragStart, onDra
           />
         );
       })}
-
-      {/* Shelf label */}
-      <Html position={[0, 1.36, 0]} center>
-        <div className="bg-slate-800/90 px-4 py-1 rounded-lg border border-slate-600">
-          <p className="text-xs font-semibold text-slate-200">🧪 Chemical Reagents and Acids</p>
-        </div>
-      </Html>
     </group>
   );
 }
