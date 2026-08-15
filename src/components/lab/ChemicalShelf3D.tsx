@@ -499,9 +499,14 @@ interface ChemicalShelfProps {
 }
 
 export function ChemicalShelf3D({ position, onSelectChemical, onDragStart, onDragEnd, selectedChemicalId, draggingChemicalId }: ChemicalShelfProps) {
-  const chemicals = Object.values(SHELF_CHEMICALS);
+  const acidIds = new Set(['hcl', 'h2so4', 'hno3', 'h3po4', 'vinegar']);
+  const allChemicals = Object.values(SHELF_CHEMICALS);
+  const acids = allChemicals.filter((chemical) => acidIds.has(chemical.id));
+  const nonAcids = allChemicals.filter((chemical) => !acidIds.has(chemical.id));
+  const chemicals = [...acids, ...nonAcids];
   const rows = 3;
   const itemsPerRow = Math.ceil(chemicals.length / rows);
+  const shelfYPositions = [1.06, 0.6, 0.14];
 
   return (
     <group position={position}>
@@ -538,7 +543,7 @@ export function ChemicalShelf3D({ position, onSelectChemical, onDragStart, onDra
         const row = Math.floor(i / itemsPerRow);
         const col = i % itemsPerRow;
         const x = -0.95 + col * 0.38;
-        const y = row === 0 ? 0.14 : row === 1 ? 0.6 : 1.06;
+        const y = shelfYPositions[row] ?? shelfYPositions[shelfYPositions.length - 1];
         
         return (
           <ChemicalBottle

@@ -483,6 +483,16 @@ const QUICK_REACTIONS = [
   "Zn + 2HCl → ZnCl₂ + H₂↑",
 ];
 
+const EXPLOSION_TEST_EFFECT: ReactionEffect = {
+  type: "explosion",
+  intensity: 1,
+  message: "💥 EXPLOSION TEST triggered. Reviewing flash, smoke, sound, and vessel motion only.",
+  equation: "Simulation-only VFX trigger",
+  visibleEvidence: "A bright flash, fast smoke burst, sharp sound cue, and brief agitation of the selected vessel.",
+  realWorldNote:
+    "This button is only for checking presentation quality in the simulation and does not represent a real chemical recipe.",
+};
+
 function getPhysicalStateLabel(state: ChemicalContent["state"]) {
   if (state === "liquid") return "Liquid";
   if (state === "solid") return "Solid";
@@ -1550,6 +1560,19 @@ export function InteractiveChemistryLab({
     });
   }, []);
 
+  const triggerExplosionTest = useCallback(() => {
+    const fallbackContainerId = "beaker-1";
+    const targetContainerId = selectedContainerId ?? containers[0]?.id ?? fallbackContainerId;
+    const hasTargetContainer = containers.some((container) => container.id === targetContainerId);
+
+    if (!hasTargetContainer) {
+      ensureMissionContainer(fallbackContainerId);
+    }
+
+    setSelectedContainerId(targetContainerId);
+    setReactionFeedback(targetContainerId, EXPLOSION_TEST_EFFECT);
+  }, [containers, ensureMissionContainer, selectedContainerId, setReactionFeedback]);
+
   const handlePickGlassware = useCallback(
     (kind: LabContainer["type"]) => {
       setPendingBenchToolId(null);
@@ -2128,6 +2151,18 @@ export function InteractiveChemistryLab({
                     </Button>
                   </>
                 )}
+
+                <Button
+                  onClick={triggerExplosionTest}
+                  variant="outline"
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Test explosion effect
+                </Button>
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  Safe preview only. This triggers the existing explosion visuals and sound without teaching a mixing recipe.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -2970,7 +3005,7 @@ export function InteractiveChemistryLab({
                   <div
                     key={`${observation}-${index}`}
                     className={`rounded-xl border p-3 text-xs leading-relaxed ${
-                      observation.includes("VIOLENT")
+                      observation.includes("VIOLENT") || observation.includes("EXPLOSION")
                         ? "border-red-500/30 bg-red-500/10 text-red-100"
                         : observation.includes("Exothermic") || observation.includes("heat")
                           ? "border-orange-500/30 bg-orange-500/10 text-orange-100"
